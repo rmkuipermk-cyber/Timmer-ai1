@@ -3,1645 +3,959 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TimmerAI — Bouwplanner</title>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>TimmerAI v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
-  --bg:       #0F0D0A;
-  --bg2:      #1A1712;
-  --bg3:      #242018;
-  --panel:    #1E1B15;
-  --border:   rgba(200,160,80,0.12);
-  --border2:  rgba(200,160,80,0.25);
-  --gold:     #C8A050;
-  --gold2:    #E8C070;
-  --amber:    #D4781A;
-  --text:     #E8DFC8;
-  --text2:    #A09070;
-  --text3:    #604830;
-  --green:    #5A9060;
-  --red:      #904040;
-  --shadow:   0 8px 40px rgba(0,0,0,0.6);
+  --bg:#0C0A08; --card:#161310; --border:rgba(180,140,60,0.2);
+  --gold:#C8A040; --gold2:#E8C060; --text:#E0D4B8; --dim:#806040;
+  --green:#4A8050; --orange:#C06020;
 }
+body { background:var(--bg); color:var(--text); font-family:'JetBrains Mono',monospace; min-height:100vh; }
 
-* { margin:0; padding:0; box-sizing:border-box; }
+/* HEADER */
+header { background:#100E0A; border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:50; }
+header h1 { font-family:'Playfair Display',serif; font-size:20px; color:var(--gold2); }
+header span { font-size:9px; letter-spacing:3px; color:var(--dim); }
+.step-bar { display:flex; gap:4px; margin-left:auto; align-items:center; }
+.sdot { width:24px; height:3px; border-radius:2px; background:var(--border); cursor:pointer; transition:.2s; }
+.sdot.done { background:var(--green); }
+.sdot.active { background:var(--gold); }
+.slabel { font-size:9px; color:var(--dim); letter-spacing:1px; margin-left:6px; white-space:nowrap; }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden;
+/* PAGES */
+.page { display:none; padding:20px; max-width:700px; margin:0 auto; }
+.page.on { display:block; }
+
+/* CARDS */
+.card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:18px; margin-bottom:14px; }
+.card h2 { font-family:'Playfair Display',serif; font-size:17px; color:var(--gold2); margin-bottom:14px; }
+.card h3 { font-size:11px; letter-spacing:2px; color:var(--dim); text-transform:uppercase; margin-bottom:10px; }
+
+/* FORM */
+label { display:block; font-size:9px; letter-spacing:2px; color:var(--dim); text-transform:uppercase; margin-bottom:5px; margin-top:12px; }
+label:first-child { margin-top:0; }
+input, select, textarea {
+  width:100%; padding:10px 12px; background:#1A1610; border:1px solid var(--border);
+  border-radius:4px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:13px;
 }
+input:focus, select:focus, textarea:focus { outline:none; border-color:var(--gold); }
+select option { background:#1A1610; }
+textarea { resize:vertical; min-height:70px; }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
 
-/* ── HEADER ── */
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
-  height: 56px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
+/* BUTTONS */
+.btn { padding:11px 20px; border:none; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:.15s; display:inline-block; }
+.btn-gold { background:var(--gold); color:#0C0A08; font-weight:600; }
+.btn-gold:hover { background:var(--gold2); }
+.btn-out { background:transparent; border:1px solid var(--border); color:var(--dim); }
+.btn-out:hover { border-color:var(--gold); color:var(--gold); }
+.btn-green { background:var(--green); color:white; }
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+.btn:disabled { opacity:.3; cursor:not-allowed; }
 
-.logo {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.logo-text {
-  font-family: 'Instrument Serif', serif;
-  font-size: 22px;
-  color: var(--gold2);
-  letter-spacing: 0.5px;
-}
-.logo-sub {
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--text3);
-  text-transform: uppercase;
-}
+/* PROJECT TYPE GRID */
+.type-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.tcard { padding:14px; border:1px solid var(--border); border-radius:6px; cursor:pointer; text-align:center; transition:.15s; }
+.tcard:hover,.tcard.on { border-color:var(--gold); background:rgba(200,160,64,.08); }
+.tcard .ti { font-size:26px; margin-bottom:6px; }
+.tcard p { font-size:10px; color:var(--dim); letter-spacing:1px; }
 
-.step-indicators {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
+/* MATERIAL CHIPS */
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { padding:5px 12px; border:1px solid var(--border); border-radius:20px; font-size:10px; cursor:pointer; color:var(--dim); transition:.15s; }
+.chip.on { border-color:var(--gold); color:var(--gold); background:rgba(200,160,64,.08); }
 
-.step-dot {
-  width: 28px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  transition: all 0.3s;
-  cursor: pointer;
-}
-.step-dot.active { background: var(--gold); border-color: var(--gold); }
-.step-dot.done { background: var(--green); border-color: var(--green); }
+/* UPLOAD */
+.upzone { border:1px dashed rgba(180,140,60,.3); border-radius:6px; padding:24px; text-align:center; cursor:pointer; transition:.2s; margin-bottom:12px; }
+.upzone:hover { border-color:var(--gold); }
+.upzone img { max-width:100%; max-height:150px; border-radius:4px; margin-top:10px; }
+.upzone p { font-size:11px; color:var(--dim); }
 
-/* ── LAYOUT ── */
-.workspace {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-@media (max-width: 768px) {
-  .workspace { flex-direction: column; overflow: visible; }
-}
+/* PARTS TABLE */
+.ptable { width:100%; border-collapse:collapse; font-size:11px; }
+.ptable th { font-size:8px; letter-spacing:2px; color:var(--dim); padding:6px 6px; border-bottom:1px solid var(--border); text-align:left; }
+.ptable td { padding:5px 6px; border-bottom:1px solid rgba(180,140,60,.07); }
+.ptable input { background:transparent; border:none; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:11px; width:100%; padding:2px; }
+.ptable input:focus { background:rgba(200,160,64,.08); border-radius:2px; outline:none; }
+.delbtn { background:none; border:none; color:var(--orange); cursor:pointer; font-size:15px; opacity:.5; }
+.delbtn:hover { opacity:1; }
 
-/* ── LEFT SIDEBAR ── */
-.sidebar {
-  width: 380px;
-  min-width: 380px;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+/* 3D CONTAINER */
+#c3d-wrap { width:100%; height:320px; border-radius:8px; overflow:hidden; position:relative; background:#0C0A08; margin-bottom:14px; }
+#c3d { display:block; width:100%; height:100%; }
+.c3d-hint { position:absolute; bottom:10px; right:10px; font-size:9px; color:rgba(200,160,64,.5); letter-spacing:1px; background:rgba(12,10,8,.7); padding:4px 8px; border-radius:3px; }
 
-.sidebar-header {
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
+/* PHOTO PREVIEW in 3D */
+#photoPreview3d { width:100%; height:100%; object-fit:cover; display:none; position:absolute; top:0; left:0; opacity:.35; border-radius:8px; }
 
-.sidebar-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 18px;
-  color: var(--gold2);
-  margin-bottom: 4px;
-}
+/* CUT PLAN */
+.sheet-wrap { margin-bottom:18px; }
+.sheet-title { font-size:9px; letter-spacing:2px; color:var(--dim); margin-bottom:6px; }
+.sheet-canvas { display:block; max-width:100%; border:1px solid var(--border); border-radius:4px; }
 
-.sidebar-sub {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--text3);
-  text-transform: uppercase;
-}
+/* LEGEND */
+.legend { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.li { display:flex; align-items:center; gap:5px; font-size:9px; color:var(--dim); }
+.lc { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
 
-.sidebar-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
-}
+/* STATS */
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.stat { background:#1A1610; border-radius:4px; padding:10px 12px; }
+.stat .sv { font-size:18px; color:var(--gold); font-weight:600; margin-bottom:2px; }
+.stat .sk { font-size:9px; color:var(--dim); letter-spacing:1px; text-transform:uppercase; }
 
-/* ── MAIN AREA ── */
-.main-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg);
-}
+/* PRICE TABLE */
+.prow { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(180,140,60,.08); font-size:11px; }
+.prow:last-child { border:none; color:var(--gold); font-weight:600; padding-top:10px; }
 
-.main-top {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
+/* AI CHAT */
+.chat-box { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:14px; }
+.chat-msgs { padding:14px; max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.msg { font-size:11px; line-height:1.7; padding:8px 12px; border-radius:4px; max-width:90%; }
+.msg-ai { background:#1A1610; border-left:2px solid var(--gold); align-self:flex-start; color:var(--dim); }
+.msg-user { background:rgba(200,160,64,.08); border-left:2px solid var(--orange); align-self:flex-end; text-align:right; }
+.msg-sys { font-size:9px; color:var(--dim); align-self:center; font-style:italic; opacity:.6; }
+.chat-input-row { display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--border); background:#100E0A; }
+.chat-input-row textarea { min-height:0; height:38px; resize:none; font-size:12px; padding:8px 10px; }
+.chat-status { padding:6px 14px; font-size:9px; color:var(--gold); background:rgba(200,160,64,.06); border-top:1px solid var(--border); display:none; }
+.chat-status.on { display:block; }
 
-.main-bottom {
-  height: 200px;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
+/* ALERT */
+.alert { padding:10px 14px; border-radius:4px; font-size:11px; margin-bottom:12px; }
+.alert-warn { background:rgba(192,96,32,.1); border:1px solid rgba(192,96,32,.3); color:#C08040; }
+.alert-ok { background:rgba(74,128,80,.1); border:1px solid rgba(74,128,80,.3); color:#80C080; }
 
-.chat-header {
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--text3);
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
+/* APPROVAL */
+.approval { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:14px; background:rgba(200,160,64,.05); border:1px solid rgba(200,160,64,.15); border-radius:6px; margin-bottom:14px; }
+.approval span { font-size:11px; color:var(--dim); flex:1; min-width:200px; }
 
-.ai-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: pulse 2s infinite;
-}
+/* SCROLLBAR */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.msg {
-  font-size: 11px;
-  line-height: 1.6;
-  padding: 6px 12px;
-  border-radius: 4px;
-  max-width: 90%;
-}
-.msg-ai { background: var(--bg3); color: var(--text2); border-left: 2px solid var(--gold); align-self: flex-start; }
-.msg-user { background: rgba(200,160,80,0.08); color: var(--text); border-left: 2px solid var(--amber); align-self: flex-end; text-align: right; }
-.msg-system { color: var(--text3); font-size: 10px; align-self: center; font-style: italic; }
-
-.chat-input-row {
-  display: flex;
-  gap: 8px;
-  padding: 10px 20px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.chat-input {
-  flex: 1;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px 12px;
-  color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  resize: none;
-}
-.chat-input:focus { outline: none; border-color: var(--gold); }
-
-/* ── FORM ELEMENTS ── */
-.field { margin-bottom: 14px; }
-.field label {
-  display: block;
-  font-size: 9px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text3);
-  margin-bottom: 6px;
-}
-
-.field input, .field select, .field textarea {
-  width: 100%;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 9px 12px;
-  color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  transition: border 0.2s;
-}
-.field input:focus, .field select:focus, .field textarea:focus {
-  outline: none; border-color: var(--gold);
-}
-.field select option { background: var(--bg2); }
-.field textarea { resize: vertical; min-height: 80px; }
-
-.row { display: flex; gap: 10px; }
-.row .field { flex: 1; }
-
-/* ── BUTTONS ── */
-.btn {
-  padding: 10px 18px;
-  border: none;
-  border-radius: 3px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-.btn-gold { background: var(--gold); color: var(--bg); }
-.btn-gold:hover { background: var(--gold2); }
-.btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text2); }
-.btn-outline:hover { border-color: var(--gold); color: var(--gold); }
-.btn-green { background: var(--green); color: white; }
-.btn-red { background: transparent; border: 1px solid rgba(144,64,64,0.4); color: #C07070; }
-.btn-red:hover { border-color: var(--red); }
-.btn-sm { padding: 6px 12px; font-size: 9px; }
-.btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-/* ── UPLOAD ── */
-.upload-zone {
-  border: 1px dashed var(--border2);
-  border-radius: 6px;
-  padding: 28px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 16px;
-  background: rgba(200,160,80,0.02);
-}
-.upload-zone:hover { border-color: var(--gold); background: rgba(200,160,80,0.05); }
-.upload-zone .up-icon { font-size: 32px; margin-bottom: 8px; }
-.upload-zone p { font-size: 11px; color: var(--text3); }
-.upload-zone img { max-width: 100%; max-height: 160px; border-radius: 4px; margin-top: 12px; }
-
-/* ── PROJECT TYPE GRID ── */
-.type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-.type-card {
-  padding: 14px 12px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-}
-.type-card:hover, .type-card.sel { border-color: var(--gold); background: rgba(200,160,80,0.08); }
-.type-card.sel { border-color: var(--amber); }
-.type-card .tc-icon { font-size: 24px; margin-bottom: 6px; }
-.type-card h4 { font-size: 10px; letter-spacing: 1px; color: var(--text2); }
-
-/* ── MATERIAL CHIPS ── */
-.mat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-.mat-chip {
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  font-size: 10px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  color: var(--text2);
-  transition: all 0.15s;
-}
-.mat-chip:hover, .mat-chip.sel { border-color: var(--gold); color: var(--gold); background: rgba(200,160,80,0.08); }
-
-/* ── PARTS TABLE ── */
-.parts-wrap { overflow-x: auto; margin-bottom: 14px; }
-table.pt { width: 100%; border-collapse: collapse; font-size: 11px; }
-table.pt th { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
-table.pt td { padding: 5px 8px; border-bottom: 1px solid rgba(200,160,80,0.06); }
-table.pt tr:hover td { background: rgba(200,160,80,0.04); }
-table.pt input { background: transparent; border: none; color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 11px; width: 100%; }
-table.pt input:focus { outline: 1px solid var(--gold); border-radius: 2px; }
-.del-btn { background: none; border: none; color: var(--red); cursor: pointer; font-size: 14px; opacity: 0.5; padding: 0 4px; }
-.del-btn:hover { opacity: 1; }
-
-/* ── RESULT CARDS ── */
-.rcard {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-.rcard h3 { font-family: 'Instrument Serif', serif; font-size: 15px; color: var(--gold2); margin-bottom: 10px; }
-.stat { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
-.stat span:last-child { color: var(--gold); }
-
-/* ── CRITICISM CARD ── */
-.crit-card {
-  background: var(--bg3);
-  border: 1px solid rgba(212, 120, 26, 0.3);
-  border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-.crit-card h3 { font-family: 'Instrument Serif', serif; font-size: 15px; color: var(--amber); margin-bottom: 10px; }
-.crit-item { font-size: 11px; line-height: 1.7; color: var(--text2); margin-bottom: 8px; padding-left: 12px; border-left: 2px solid var(--amber); }
-
-/* ── 3D CANVAS ── */
-#threeCanvas { display: block; width: 100%; height: 100%; }
-
-/* ── CUT CANVAS ── */
-.cut-wrap { padding: 20px; overflow-y: auto; height: 100%; }
-.cut-sheet { margin-bottom: 20px; }
-.cut-sheet-title { font-size: 10px; letter-spacing: 2px; color: var(--text3); margin-bottom: 8px; }
-
-/* ── LEGEND ── */
-.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.leg-item { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 1px; color: var(--text2); }
-.leg-color { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
-
-/* ── APPROVAL BAR ── */
-.approval-bar {
-  background: var(--bg2);
-  border-top: 1px solid var(--border);
-  padding: 12px 24px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.approval-bar span { font-size: 10px; color: var(--text3); letter-spacing: 1px; flex: 1; }
-
-/* ── VIEWS ── */
-.view { display: none; height: 100%; }
-.view.active { display: flex; }
-.view-full { flex-direction: column; width: 100%; }
-
-/* ── LOADING SPINNER ── */
-.loading {
-  display: none;
-  position: absolute;
-  inset: 0;
-  background: rgba(15,13,10,0.85);
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 16px;
-  z-index: 100;
-}
-.loading.show { display: flex; }
-.spinner {
-  width: 40px; height: 40px;
-  border: 3px solid var(--border);
-  border-top-color: var(--gold);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading p { font-size: 12px; color: var(--text2); letter-spacing: 2px; }
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-
-/* ── TABS ── */
-.tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 24px; flex-shrink: 0; }
-.tab { padding: 10px 16px; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--text3); transition: all 0.15s; }
-.tab.active { border-bottom-color: var(--gold); color: var(--gold); }
-
-.tab-pane { display: none; flex: 1; overflow: hidden; }
-.tab-pane.active { display: flex; flex-direction: column; overflow-y: auto; }
-
-/* price table */
-.price-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
-.price-row:last-child { border: none; font-weight: 600; color: var(--gold); }
-
-/* akkoord checkmark */
-.big-check { font-size: 64px; text-align: center; margin: 20px 0; }
-.akkoord-msg { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--gold2); text-align: center; margin-bottom: 8px; }
-
-/* ── MOBILE ── */
-@media (max-width: 768px) {
-  html, body { overflow-x: hidden; width: 100%; }
-  body { min-height: 100vh; height: auto; }
-
-  header { padding: 0 14px; height: 50px; flex-wrap: wrap; }
-  .logo-text { font-size: 17px; }
-  .logo-sub { display: none; }
-  .step-indicators { gap: 3px; }
-  .step-dot { width: 18px; }
-  #stepLabel { font-size: 9px; }
-
-  /* KEY FIX: stack everything vertically */
-  .workspace {
-    flex-direction: column !important;
-    overflow: visible !important;
-    height: auto !important;
-    width: 100% !important;
-  }
-
-  .sidebar {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--border);
-  }
-  .sidebar-body { overflow-y: visible; padding: 16px; }
-
-  .main-area {
-    width: 100% !important;
-    height: auto !important;
-    min-height: 0;
-  }
-
-  .main-top {
-    height: 300px !important;
-    min-height: 300px;
-    width: 100% !important;
-  }
-
-  #threeCanvas { width: 100% !important; height: 100% !important; }
-
-  .main-bottom { height: auto; min-height: 140px; }
-  .chat-messages { max-height: 80px; }
-
-  .approval-bar { flex-wrap: wrap; padding: 10px 14px; }
-  .approval-bar span { width: 100%; margin-bottom: 6px; }
-
-  .type-grid { grid-template-columns: 1fr 1fr; }
-  .mat-chips { gap: 5px; }
-  .row { flex-direction: column; gap: 0; }
-
-  .view { height: auto !important; min-height: 300px; }
-  .view-full { min-height: 400px; }
-
-  .tab-pane { overflow-y: auto; max-height: 400px; }
-  .cut-wrap { padding: 12px; }
-
-  .big-check { font-size: 48px; }
-  .akkoord-msg { font-size: 18px; }
-
-  .parts-wrap { overflow-x: auto; }
-  table.pt { font-size: 10px; }
-  table.pt input { font-size: 10px; }
-}
+/* LOADING */
+.loading-overlay { position:fixed; inset:0; background:rgba(12,10,8,.85); display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px; z-index:999; }
+.loading-overlay.on { display:flex; }
+.spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-overlay p { font-size:11px; color:var(--dim); letter-spacing:2px; }
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <header>
-  <div class="logo">
-    <div class="logo-text">TimmerAI</div>
-    <div class="logo-sub">Bouwplanner</div>
+  <div>
+    <h1>TimmerAI</h1>
+    <span>Bouwplanner</span>
   </div>
-  <div class="step-indicators" id="stepDots"></div>
-  <div style="font-size:10px;color:var(--text3);letter-spacing:1px" id="stepLabel">Stap 1 / 6</div>
+  <div class="step-bar" id="stepBar"></div>
+  <div class="slabel" id="slabel">Stap 1/6</div>
 </header>
 
-<!-- WORKSPACE -->
-<div class="workspace">
-
-  <!-- LEFT SIDEBAR -->
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-title" id="sideTitle">Project starten</div>
-      <div class="sidebar-sub" id="sideSub">Foto & beschrijving</div>
-    </div>
-    <div class="sidebar-body" id="sidebarBody">
-      <!-- Dynamic content per step -->
-    </div>
-  </div>
-
-  <!-- MAIN AREA -->
-  <div class="main-area">
-
-    <!-- Top: 3D / Canvas / Results -->
-    <div class="main-top" id="mainTop">
-      <!-- Step views rendered here -->
-      <div id="view-welcome" class="view active" style="align-items:center;justify-content:center;flex-direction:column;gap:20px">
-        <div style="font-size:80px">🪚</div>
-        <div style="font-family:'Instrument Serif',serif;font-size:32px;color:var(--gold2)">Welkom bij TimmerAI</div>
-        <div style="font-size:12px;color:var(--text2);max-width:400px;text-align:center;line-height:1.8">
-          Upload een foto of beschrijf je project.<br>De AI begeleidt je van schets tot zaagplan.
-        </div>
-      </div>
-
-      <div id="view-3d" class="view" style="position:relative">
-        <canvas id="threeCanvas"></canvas>
-        <div style="position:absolute;top:14px;right:14px;font-size:9px;color:var(--text3);letter-spacing:1px;background:rgba(15,13,10,0.7);padding:6px 10px;border-radius:3px">
-          🖱 Slepen = roteren · Scroll = zoom
-        </div>
-        <div id="loading3d" class="loading">
-          <div class="spinner"></div>
-          <p>3D model genereren...</p>
-        </div>
-      </div>
-
-      <div id="view-cutplan" class="view view-full">
-        <div class="tabs">
-          <div class="tab active" onclick="switchTab('zaagplan')">Zaagplan</div>
-          <div class="tab" onclick="switchTab('bestellijst')">Bestellijst</div>
-          <div class="tab" onclick="switchTab('samenvatting')">Samenvatting</div>
-        </div>
-        <div id="tab-zaagplan" class="tab-pane active">
-          <div class="cut-wrap" id="cutWrap"></div>
-        </div>
-        <div id="tab-bestellijst" class="tab-pane">
-          <div style="padding:20px" id="orderWrap"></div>
-        </div>
-        <div id="tab-samenvatting" class="tab-pane">
-          <div style="padding:20px" id="summWrap"></div>
-        </div>
-      </div>
-
-      <div id="view-akkoord" class="view" style="align-items:center;justify-content:center;flex-direction:column">
-        <div class="big-check">✅</div>
-        <div class="akkoord-msg">Ontwerp goedgekeurd!</div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:24px">Je kunt nu het zaagplan en de bestellijst downloaden.</div>
-        <div style="display:flex;gap:10px">
-          <button class="btn btn-gold" onclick="showFinalPlan()">📐 Zaagplan bekijken</button>
-          <button class="btn btn-outline" onclick="exportPDF()">📄 PDF exporteren</button>
-        </div>
-      </div>
-
-      <div id="loadingMain" class="loading">
-        <div class="spinner"></div>
-        <p id="loadingText">AI aan het werk...</p>
-      </div>
+<!-- PAGE 1: PROJECT -->
+<div class="page on" id="p1">
+  <div class="card">
+    <h2>🪚 Nieuw project</h2>
+    <label>Projecttype</label>
+    <div class="type-grid" style="margin-bottom:14px">
+      <div class="tcard on" onclick="selType(this,'kast')"><div class="ti">🗄️</div><p>Kast / Meubel</p></div>
+      <div class="tcard" onclick="selType(this,'tafel')"><div class="ti">🪑</div><p>Tafel / Stoel</p></div>
+      <div class="tcard" onclick="selType(this,'tuin')"><div class="ti">🌿</div><p>Tuinproject</p></div>
+      <div class="tcard" onclick="selType(this,'vloer')"><div class="ti">🏗️</div><p>Vloer / Betimmering</p></div>
     </div>
 
-    <!-- Bottom: AI Chat -->
-    <div class="main-bottom">
-      <div class="chat-header">
-        <div class="ai-dot"></div>
-        AI Assistent
-        <span style="margin-left:auto;font-size:9px;opacity:0.5" id="chatHint">Beschrijf je project of stel een vraag</span>
-      </div>
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-input-row">
-        <textarea class="chat-input" id="chatInput" rows="2" placeholder="Typ een bericht of aanpassing..." onkeydown="chatKeydown(event)"></textarea>
-        <button class="btn btn-gold btn-sm" onclick="sendChat()">Stuur</button>
-      </div>
+    <label>Foto van de plek (optioneel — wordt achtergrond in 3D)</label>
+    <div class="upzone" id="upzone" onclick="document.getElementById('photoIn').click()">
+      <div style="font-size:28px;margin-bottom:6px">📸</div>
+      <p>Klik om foto te uploaden</p>
     </div>
+    <input type="file" id="photoIn" accept="image/*" style="display:none" onchange="loadPhoto(event)">
 
-    <!-- Approval bar (shown in step 4) -->
-    <div class="approval-bar" id="approvalBar" style="display:none">
-      <span id="approvalText">Ben je tevreden met dit ontwerp?</span>
-      <button class="btn btn-outline btn-sm" onclick="requestRevision()">✏️ Aanpassen</button>
-      <button class="btn btn-green btn-sm" onclick="approveDesign()">✅ Akkoord!</button>
+    <label>Beschrijf je project</label>
+    <textarea id="desc" placeholder="Bijv: Een boekenkast van 2 meter hoog met 5 vakken, voor tegen de muur in de woonkamer..."></textarea>
+
+    <div class="btn-row">
+      <button class="btn btn-gold" onclick="step1go()" style="flex:1">Analyseren met AI →</button>
     </div>
   </div>
 </div>
 
+<!-- PAGE 2: MATEN -->
+<div class="page" id="p2">
+  <div class="card">
+    <h2>📐 Afmetingen</h2>
+    <div id="aiSuggestie" class="alert alert-ok" style="display:none"></div>
+    <div class="row3">
+      <div><label>Breedte (mm)</label><input type="number" id="dimB" value="800"></div>
+      <div><label>Hoogte (mm)</label><input type="number" id="dimH" value="2000"></div>
+      <div><label>Diepte (mm)</label><input type="number" id="dimD" value="400"></div>
+    </div>
+    <div class="row2" style="margin-top:10px">
+      <div><label>Zaagsnede (mm)</label><input type="number" id="dimZ" value="3"></div>
+      <div><label>Achterwand</label>
+        <select id="awSel"><option value="6">Hardboard 6mm</option><option value="0">Geen</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🪵 Materiaal</h2>
+    <div class="chips" id="matChips"></div>
+    <div class="row2" style="margin-top:12px">
+      <div><label>Plaatbreedte (mm)</label><input type="number" id="plaatB" value="2440"></div>
+      <div><label>Plaatlengte (mm)</label><input type="number" id="plaatL" value="1220"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-out" onclick="goPage(1)">← Terug</button>
+    <button class="btn btn-gold" onclick="step2go()" style="flex:1">Onderdelen genereren →</button>
+  </div>
+</div>
+
+<!-- PAGE 3: ONDERDELEN -->
+<div class="page" id="p3">
+  <div class="card">
+    <h2>🔩 Onderdelen</h2>
+    <p style="font-size:10px;color:var(--dim);margin-bottom:12px">Pas aan waar nodig. Klik op een waarde om te bewerken.</p>
+    <div style="overflow-x:auto">
+      <table class="ptable" id="ptable">
+        <thead><tr><th>Naam</th><th>L(mm)</th><th>B(mm)</th><th>D(mm)</th><th>N</th><th></th></tr></thead>
+        <tbody id="ptbody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-out btn-sm" onclick="addPart()" style="font-size:10px;padding:7px 14px">+ Toevoegen</button>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-out" onclick="goPage(2)">← Terug</button>
+    <button class="btn btn-gold" onclick="step3go()" style="flex:1">3D genereren →</button>
+  </div>
+</div>
+
+<!-- PAGE 4: 3D + CHAT -->
+<div class="page" id="p4">
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="c3d-wrap">
+      <img id="photoPreview3d">
+      <canvas id="c3d"></canvas>
+      <div class="c3d-hint">👆 Slepen = roteren · Knijpen = zoom</div>
+    </div>
+  </div>
+
+  <div class="approval" id="approvalBar">
+    <span>Ben je tevreden met dit ontwerp?</span>
+    <button class="btn btn-out" onclick="doRevise()" style="font-size:10px;padding:8px 14px">✏️ Aanpassen</button>
+    <button class="btn btn-green" onclick="doApprove()" style="font-size:10px;padding:8px 14px">✅ Akkoord!</button>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden" id="chatCard">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:spin 3s linear infinite;filter:none;box-shadow:0 0 6px var(--green)"></div>
+      <span style="font-size:9px;letter-spacing:2px;color:var(--dim)">AI ASSISTENT</span>
+    </div>
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <div class="chat-status" id="chatStatus">⏳ AI aan het denken...</div>
+    <div class="chat-input-row">
+      <textarea id="chatIn" placeholder="Typ een aanpassing... bijv. 'maak 20cm breder' of 'voeg lade toe'" onkeydown="chatKey(event)"></textarea>
+      <button class="btn btn-gold" onclick="sendMsg()" style="padding:8px 14px;font-size:10px;height:38px">→</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📐 Huidige afmetingen</h2>
+    <div class="stats">
+      <div class="stat"><div class="sv" id="s3dB">—</div><div class="sk">Breedte</div></div>
+      <div class="stat"><div class="sv" id="s3dH">—</div><div class="sk">Hoogte</div></div>
+      <div class="stat"><div class="sv" id="s3dD">—</div><div class="sk">Diepte</div></div>
+      <div class="stat"><div class="sv" id="s3dN">—</div><div class="sk">Onderdelen</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 5: ZAAGPLAN -->
+<div class="page" id="p5">
+  <div class="card">
+    <h2>✅ Akkoord — Zaagplan klaar</h2>
+    <div class="stats">
+      <div class="stat"><div class="sv" id="zpPlaten">—</div><div class="sk">Platen nodig</div></div>
+      <div class="stat"><div class="sv" id="zpDelen">—</div><div class="sk">Onderdelen</div></div>
+      <div class="stat"><div class="sv" id="zpEff">—</div><div class="sk">Materiaalbenutting</div></div>
+      <div class="stat"><div class="sv" id="zpKosten">—</div><div class="sk">Geschatte kosten</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🗂️ Plaatindeling</h2>
+    <div class="legend" id="zpLegend"></div>
+    <div id="zpSheets"></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Onderdelenlijst</h2>
+    <div style="overflow-x:auto">
+      <table class="ptable" id="zpPartsList">
+        <thead><tr><th>#</th><th>Naam</th><th>Lengte</th><th>Breedte</th><th>Dikte</th><th>Aantal</th><th>Materiaal</th></tr></thead>
+        <tbody id="zpPartsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🛒 Bestellijst</h2>
+    <div id="zpOrder"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-out" onclick="goPage(4)">← 3D bekijken</button>
+    <button class="btn btn-gold" onclick="exportPDF()" style="flex:1">📄 PDF exporteren</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loader">
+  <div class="spinner"></div>
+  <p id="loaderTxt">Bezig...</p>
+</div>
+
 <script>
-// ═══════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════
+// ═══ STATE ═══
 const S = {
-  step: 0,
-  projectType: '',
-  description: '',
-  photoBase64: null,
-  dimensions: {},
-  materials: [],
+  type: 'kast',
+  photo: null,
+  desc: '',
+  dims: { b:800, h:2000, d:400, z:3, aw:6 },
+  mat: { id:'multiplex18', label:'Multiplex 18mm', dikte:18, prijs:45, pw:2440, ph:1220 },
   parts: [],
   cutPlan: [],
-  aiAnalysis: null,
-  criticism: null,
-  revisions: 0,
-  approved: false,
-  conversationHistory: []
+  chat: [],  // [{role, content}]
+  page: 1
 };
 
-const STEPS = [
-  { title: 'Project starten',   sub: 'Foto & beschrijving' },
-  { title: 'Maten & materiaal', sub: 'Specificaties invoeren' },
-  { title: 'Onderdelen',        sub: 'Lijst controleren' },
-  { title: '3D Ontwerp',        sub: 'Beoordeel het ontwerp' },
-  { title: 'Verfijnen',         sub: 'Aanpassingen verwerken' },
-  { title: 'Zaagplan',          sub: 'Plan & bestellijst' },
+const MATS = [
+  {id:'multiplex18',label:'Multiplex 18mm',dikte:18,prijs:45,pw:2440,ph:1220},
+  {id:'mdf18',label:'MDF 18mm',dikte:18,prijs:32,pw:2800,ph:2070},
+  {id:'spaanplaat',label:'Spaanplaat 18mm',dikte:18,prijs:28,pw:2800,ph:2070},
+  {id:'multiplex12',label:'Multiplex 12mm',dikte:12,prijs:38,pw:2440,ph:1220},
+  {id:'hardboard6',label:'Hardboard 6mm',dikte:6,prijs:14,pw:2440,ph:1220},
+  {id:'vuren',label:'Vurenhout',dikte:44,prijs:6,pw:4200,ph:145},
+  {id:'grenen',label:'Grenenhout',dikte:38,prijs:8,pw:3000,ph:120},
 ];
+const COLS = ['#C8A040','#D47820','#5A9060','#5C7A9E','#9E5C7A','#7A9E5C','#8B5C9E','#5C9E8B'];
 
-const COLORS = ['#C8A050','#D4781A','#5A9060','#5C7A9E','#9E5C7A','#7A9E5C','#9E7A5C','#5C9E8B','#8B5C9E','#9E8B5C'];
-
-const PROJECT_TYPES = [
-  { id:'kast',     icon:'🗄️',  label:'Kast / Meubel' },
-  { id:'tafel',    icon:'🪑',  label:'Tafel / Stoel' },
-  { id:'tuin',     icon:'🌿',  label:'Tuinproject' },
-  { id:'vloer',    icon:'🏗️',  label:'Vloer / Betimmering' },
-];
-
-const MATERIALS = [
-  { id:'multiplex18', label:'Multiplex 18mm', dikte:18, prijs:45, w:2440, h:1220 },
-  { id:'mdf18',       label:'MDF 18mm',       dikte:18, prijs:32, w:2800, h:2070 },
-  { id:'spaanplaat',  label:'Spaanplaat 18mm',dikte:18, prijs:28, w:2800, h:2070 },
-  { id:'multiplex12', label:'Multiplex 12mm', dikte:12, prijs:38, w:2440, h:1220 },
-  { id:'hardboard6',  label:'Hardboard 6mm',  dikte:6,  prijs:14, w:2440, h:1220 },
-  { id:'vuren',       label:'Vurenhout',       dikte:45, prijs:8,  w:4200, h:195, perMeter:true },
-  { id:'grenen',      label:'Grenenhout',      dikte:38, prijs:10, w:4200, h:145, perMeter:true },
-  { id:'eiken',       label:'Eikenhout',       dikte:20, prijs:25, w:3000, h:130, perMeter:true },
-];
-
-// ═══════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════
-function init() {
-  buildStepDots();
-  renderStep(0);
-  addMsg('ai', 'Welkom! Upload een foto of beschrijf wat je wilt maken. Ik help je van ontwerp tot zaagplan. 🪚');
-}
-
-function buildStepDots() {
-  const wrap = document.getElementById('stepDots');
-  wrap.innerHTML = STEPS.map((s,i) => `<div class="step-dot" id="dot${i}" title="${s.title}" onclick="tryGoStep(${i})"></div>`).join('');
-  updateDots();
-}
-
-function updateDots() {
-  STEPS.forEach((_,i) => {
-    const d = document.getElementById('dot'+i);
-    d.classList.toggle('active', i === S.step);
-    d.classList.toggle('done', i < S.step);
+// ═══ NAVIGATION ═══
+function goPage(n) {
+  S.page = n;
+  document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('on',i+1===n));
+  document.querySelectorAll('.sdot').forEach((d,i)=>{
+    d.classList.toggle('active',i+1===n);
+    d.classList.toggle('done',i+1<n);
   });
-  document.getElementById('stepLabel').textContent = `Stap ${S.step+1} / ${STEPS.length}`;
+  document.getElementById('slabel').textContent = `Stap ${n}/6`;
+  window.scrollTo(0,0);
 }
 
-function tryGoStep(n) {
-  if (n <= S.step) goStep(n);
+function buildStepBar() {
+  const bar = document.getElementById('stepBar');
+  bar.innerHTML = ['Project','Maten','Delen','3D','Zaagplan','Export'].map((_,i)=>
+    `<div class="sdot ${i===0?'active':''}" onclick="if(${i+1}<=${S.page})goPage(${i+1})" title="Stap ${i+1}"></div>`
+  ).join('');
 }
 
-function goStep(n) {
-  S.step = n;
-  updateDots();
-  document.getElementById('sideTitle').textContent = STEPS[n].title;
-  document.getElementById('sideSub').textContent   = STEPS[n].sub;
-  renderStep(n);
-}
-
-// ═══════════════════════════════════════════════
-// STEP RENDERERS
-// ═══════════════════════════════════════════════
-function renderStep(n) {
-  const body = document.getElementById('sidebarBody');
-  hideAllViews();
-  document.getElementById('approvalBar').style.display = 'none';
-
-  if (n === 0) { renderStep0(body); showView('view-welcome'); }
-  else if (n === 1) { renderStep1(body); showView('view-welcome'); }
-  else if (n === 2) { renderStep2(body); showView('view-welcome'); }
-  else if (n === 3) { renderStep3(body); showView('view-3d'); document.getElementById('approvalBar').style.display='flex'; }
-  else if (n === 4) { renderStep4(body); showView('view-3d'); document.getElementById('approvalBar').style.display='flex'; }
-  else if (n === 5) { renderStep5(body); showView('view-cutplan'); }
-}
-
-// Step 0: Project type + foto + beschrijving
-function renderStep0(body) {
-  body.innerHTML = `
-    <div class="field">
-      <label>Projecttype</label>
-      <div class="type-grid">
-        ${PROJECT_TYPES.map(t => `
-          <div class="type-card ${S.projectType===t.id?'sel':''}" onclick="selectType('${t.id}',this)">
-            <div class="tc-icon">${t.icon}</div>
-            <h4>${t.label}</h4>
-          </div>`).join('')}
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Foto of schets (optioneel)</label>
-      <div class="upload-zone" onclick="document.getElementById('photoIn').click()" id="upZone">
-        <div class="up-icon">📸</div>
-        <p>Klik om foto te uploaden</p>
-        ${S.photoBase64 ? `<img src="${S.photoBase64}">` : ''}
-      </div>
-      <input type="file" id="photoIn" accept="image/*" style="display:none" onchange="loadPhoto(event)">
-    </div>
-
-    <div class="field">
-      <label>Beschrijving project</label>
-      <textarea id="descInput" placeholder="Bijv: Een boekenkast van 2 meter hoog met 5 vakken en een lade onderaan...">${S.description}</textarea>
-    </div>
-
-    <button class="btn btn-gold" style="width:100%" onclick="analyzeProject()">
-      AI analyseren →
-    </button>
-  `;
-}
-
-function selectType(id, el) {
-  S.projectType = id;
-  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('sel'));
-  el.classList.add('sel');
+// ═══ STEP 1 ═══
+function selType(el, type) {
+  S.type = type;
+  document.querySelectorAll('.tcard').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
 }
 
 function loadPhoto(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    S.photoBase64 = ev.target.result;
-    const zone = document.getElementById('upZone');
-    if (zone) {
-      zone.innerHTML = `<img src="${S.photoBase64}" style="max-width:100%;max-height:160px;border-radius:4px">`;
-    }
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    S.photo = ev.target.result;
+    const z = document.getElementById('upzone');
+    z.innerHTML = `<img src="${S.photo}" style="max-width:100%;max-height:150px;border-radius:4px">`;
   };
-  reader.readAsDataURL(file);
+  r.readAsDataURL(f);
 }
 
-async function analyzeProject() {
-  S.description = document.getElementById('descInput').value;
-  if (!S.description && !S.photoBase64) {
-    addMsg('ai', 'Vul eerst een beschrijving in of upload een foto.'); return;
-  }
+async function step1go() {
+  S.desc = document.getElementById('desc').value;
+  if (!S.desc && !S.photo) { alert('Vul een beschrijving in of upload een foto.'); return; }
+  showLoader('AI analyseert je project...');
+  goPage(2);
 
-  showLoading('AI analyseert je project...');
-
-  const msgs = [];
-  const contentParts = [];
-  if (S.photoBase64) {
-    const mediaType = S.photoBase64.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
-    contentParts.push({ type:'image', source:{ type:'base64', media_type: mediaType, data: S.photoBase64.split(',')[1] }});
-  }
-  contentParts.push({ type:'text', text: `Je bent een ervaren Nederlandse timmerman/ontwerper. Analyseer dit project en geef JSON terug.
-Project: ${S.description || 'zie foto'}
-Type: ${S.projectType || 'onbekend'}
-
-Geef ALLEEN dit JSON formaat terug (geen uitleg, geen markdown):
-{
-  "projectNaam": "...",
-  "type": "kast|tafel|tuin|vloer",
-  "beschrijving": "korte omschrijving",
-  "suggestieMaten": { "breedte": 0, "hoogte": 0, "diepte": 0 },
-  "aanbevolenMaterialen": ["multiplex18","mdf18"],
-  "suggestieOnderdelen": [{"naam":"...","lengte":0,"breedte":0,"aantal":1}],
-  "opmerkingen": "tips voor de bouw"
-}` });
+  // Build material chips
+  const chipsEl = document.getElementById('matChips');
+  chipsEl.innerHTML = MATS.map(m=>`<div class="chip${m.id==='multiplex18'?' on':''}" onclick="selMat('${m.id}',this)">${m.label}</div>`).join('');
 
   try {
-    const resp = await callClaude([{ role:'user', content: contentParts }], 1500);
-    const clean = resp.replace(/```json|```/g,'').trim();
-    S.aiAnalysis = JSON.parse(clean);
-    hideLoading();
-
-    addMsg('ai', `✅ Project herkend: **${S.aiAnalysis.projectNaam}**\n${S.aiAnalysis.opmerkingen}`);
-    addMsg('system', '→ Stap 2: Maten & materialen');
-
-    // Pre-fill
-    if (S.aiAnalysis.suggestieMaten) {
-      S.dimensions = { ...S.aiAnalysis.suggestieMaten };
+    const content = [];
+    if (S.photo) {
+      const mt = S.photo.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+      content.push({type:'image',source:{type:'base64',media_type:mt,data:S.photo.split(',')[1]}});
     }
-    S.materials = S.aiAnalysis.aanbevolenMaterialen || ['multiplex18'];
-    if (S.aiAnalysis.suggestieOnderdelen) S.parts = S.aiAnalysis.suggestieOnderdelen.map(p => ({...p, dikte:18, materiaal:'Multiplex 18mm'}));
+    content.push({type:'text',text:`Analyseer dit project als ervaren timmerman. Geef ALLEEN JSON terug (geen uitleg):
+{"breedte":800,"hoogte":2000,"diepte":400,"suggestie":"korte tip"}`});
 
-    goStep(1);
-  } catch(e) {
-    hideLoading();
-    addMsg('ai', 'Kon niet analyseren. Probeer opnieuw of vul handmatig in.');
-    goStep(1);
-  }
+    const resp = await claude([{role:'user',content}], 300);
+    const json = JSON.parse(resp.replace(/```json|```/g,'').trim());
+    if (json.breedte) document.getElementById('dimB').value = json.breedte;
+    if (json.hoogte)  document.getElementById('dimH').value = json.hoogte;
+    if (json.diepte)  document.getElementById('dimD').value = json.diepte;
+    if (json.suggestie) {
+      const s = document.getElementById('aiSuggestie');
+      s.textContent = '🤖 AI suggestie: ' + json.suggestie;
+      s.style.display = 'block';
+    }
+  } catch(e) {}
+  hideLoader();
 }
 
-// Step 1: Dimensions + materials
-function renderStep1(body) {
-  const d = S.dimensions;
-  body.innerHTML = `
-    <div class="row">
-      <div class="field">
-        <label>Breedte (mm)</label>
-        <input type="number" id="dimB" value="${d.breedte||800}">
-      </div>
-      <div class="field">
-        <label>Hoogte (mm)</label>
-        <input type="number" id="dimH" value="${d.hoogte||2000}">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>Diepte (mm)</label>
-        <input type="number" id="dimD" value="${d.diepte||400}">
-      </div>
-      <div class="field">
-        <label>Zaagsnede (mm)</label>
-        <input type="number" id="dimZ" value="3">
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Materialen (meerdere mogelijk)</label>
-      <div class="mat-chips">
-        ${MATERIALS.map(m => `<div class="mat-chip ${S.materials.includes(m.id)?'sel':''}" onclick="toggleMat('${m.id}',this)">${m.label}</div>`).join('')}
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Achterwand</label>
-      <select id="awSel">
-        <option value="6">Ja — hardboard 6mm</option>
-        <option value="0">Nee</option>
-      </select>
-    </div>
-
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-outline" onclick="goStep(0)">← Terug</button>
-      <button class="btn btn-gold" style="flex:1" onclick="buildPartsList()">Onderdelen genereren →</button>
-    </div>
-  `;
+function selMat(id, el) {
+  S.mat = MATS.find(m=>m.id===id) || MATS[0];
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('plaatB').value = S.mat.pw;
+  document.getElementById('plaatL').value = S.mat.ph;
 }
 
-function toggleMat(id, el) {
-  if (S.materials.includes(id)) {
-    S.materials = S.materials.filter(m => m !== id);
-    el.classList.remove('sel');
-  } else {
-    S.materials.push(id);
-    el.classList.add('sel');
-  }
-}
-
-function buildPartsList() {
-  S.dimensions = {
-    breedte: +document.getElementById('dimB').value,
-    hoogte: +document.getElementById('dimH').value,
-    diepte: +document.getElementById('dimD').value,
-    zaagSnede: +document.getElementById('dimZ').value,
-    achterwand: +document.getElementById('awSel').value
+// ═══ STEP 2 ═══
+function step2go() {
+  S.dims = {
+    b: +document.getElementById('dimB').value,
+    h: +document.getElementById('dimH').value,
+    d: +document.getElementById('dimD').value,
+    z: +document.getElementById('dimZ').value,
+    aw: +document.getElementById('awSel').value
   };
-
-  const b = S.dimensions.breedte, h = S.dimensions.hoogte, d = S.dimensions.diepte;
-  const dikte = 18;
-  const aw = S.dimensions.achterwand;
-  const mainMat = MATERIALS.find(m => S.materials.includes(m.id)) || MATERIALS[0];
-
-  // If AI gave us parts, use those; else auto-generate
-  if (!S.parts || S.parts.length === 0) {
-    S.parts = autoGenerateParts(b, h, d, dikte, aw, mainMat.label);
-  } else {
-    // update material
-    S.parts = S.parts.map(p => ({ ...p, dikte: dikte, materiaal: mainMat.label }));
-  }
-
-  goStep(2);
+  S.mat.pw = +document.getElementById('plaatB').value;
+  S.mat.ph = +document.getElementById('plaatL').value;
+  genParts();
+  goPage(3);
 }
 
-function autoGenerateParts(b, h, d, dikte, aw, matLabel) {
-  const binB = b - 2*dikte, binH = h - 2*dikte, binD = aw>0 ? d-aw : d;
+function genParts() {
+  const {b,h,d,aw} = S.dims, dk = S.mat.dikte;
+  const ib = b-2*dk, id2 = aw>0?d-aw:d;
   const vakken = 4;
-  let parts = [
-    { naam:'Zijwand',  lengte:h, breedte:d, dikte, aantal:2, materiaal:matLabel },
-    { naam:'Bodem',    lengte:binB, breedte:binD, dikte, aantal:1, materiaal:matLabel },
-    { naam:'Top',      lengte:binB, breedte:binD, dikte, aantal:1, materiaal:matLabel },
-    { naam:'Legplank', lengte:binB, breedte:binD, dikte, aantal:vakken-1, materiaal:matLabel },
+  S.parts = [
+    {naam:'Zijwand', l:h, w:d, d:dk, n:2},
+    {naam:'Bodem',   l:ib, w:id2, d:dk, n:1},
+    {naam:'Top',     l:ib, w:id2, d:dk, n:1},
+    {naam:'Legplank',l:ib, w:id2, d:dk, n:vakken-1},
   ];
-  if (aw>0) parts.push({ naam:'Achterwand', lengte:b, breedte:h, dikte:aw, aantal:1, materiaal:'Hardboard 6mm' });
-  return parts;
+  if (aw>0) S.parts.push({naam:'Achterwand',l:b,w:h,d:aw,n:1,mat:'Hardboard 6mm'});
+  if (S.type==='tafel') {
+    S.parts = [
+      {naam:'Tafelblad',l:b,w:d,d:dk,n:1},
+      {naam:'Poot',l:h-dk,w:dk*2,d:dk*2,n:4},
+      {naam:'Dwarsregel',l:d-dk*4,w:60,d:dk,n:2},
+    ];
+  }
 }
 
-// Step 2: Parts list
-function renderStep2(body) {
-  body.innerHTML = `
-    <div class="parts-wrap">
-      <table class="pt" id="partsTable">
-        <thead><tr>
-          <th>Onderdeel</th><th>L(mm)</th><th>B(mm)</th><th>D</th><th>N</th><th></th>
-        </tr></thead>
-        <tbody id="partsBody"></tbody>
-      </table>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="addPart()">+ Toevoegen</button>
-      <button class="btn btn-outline" onclick="goStep(1)">← Terug</button>
-      <button class="btn btn-gold" style="flex:1" onclick="generate3D()">3D genereren →</button>
-    </div>
-  `;
-  renderPartsBody();
-}
-
-function renderPartsBody() {
-  const tbody = document.getElementById('partsBody');
-  if (!tbody) return;
-  tbody.innerHTML = S.parts.map((p,i) => `
+// ═══ STEP 3 ═══
+function renderParts() {
+  document.getElementById('ptbody').innerHTML = S.parts.map((p,i)=>`
     <tr>
-      <td><input value="${p.naam}" onchange="S.parts[${i}].naam=this.value" style="width:90px"></td>
-      <td><input type="number" value="${p.lengte}" onchange="S.parts[${i}].lengte=+this.value;updateDimFromParts()" style="width:55px"></td>
-      <td><input type="number" value="${p.breedte}" onchange="S.parts[${i}].breedte=+this.value" style="width:55px"></td>
-      <td><input type="number" value="${p.dikte}" onchange="S.parts[${i}].dikte=+this.value" style="width:40px"></td>
-      <td><input type="number" value="${p.aantal}" onchange="S.parts[${i}].aantal=+this.value" style="width:35px" min="1"></td>
-      <td><button class="del-btn" onclick="deletePart(${i})">×</button></td>
+      <td><input value="${p.naam}" onchange="S.parts[${i}].naam=this.value" style="width:80px"></td>
+      <td><input type="number" value="${p.l}" onchange="S.parts[${i}].l=+this.value" style="width:52px"></td>
+      <td><input type="number" value="${p.w}" onchange="S.parts[${i}].w=+this.value" style="width:52px"></td>
+      <td><input type="number" value="${p.d}" onchange="S.parts[${i}].d=+this.value" style="width:40px"></td>
+      <td><input type="number" value="${p.n}" onchange="S.parts[${i}].n=+this.value" style="width:34px" min="1"></td>
+      <td><button class="delbtn" onclick="S.parts.splice(${i},1);renderParts()">×</button></td>
     </tr>`).join('');
 }
 
-function updateDimFromParts() {
-  // Update overall dimensions based on zijwand height
-  const zijwand = S.parts.find(p => p.naam.toLowerCase().includes('zij'));
-  if (zijwand) S.dimensions.hoogte = zijwand.lengte;
-  const bodem = S.parts.find(p => p.naam.toLowerCase().includes('bodem'));
-  if (bodem) { S.dimensions.breedte = bodem.lengte + 36; S.dimensions.diepte = bodem.breedte + 18; }
-}
-
 function addPart() {
-  S.parts.push({ naam:'Nieuw deel', lengte:400, breedte:300, dikte:18, aantal:1, materiaal:'Multiplex 18mm' });
-  renderPartsBody();
-}
-function deletePart(i) { S.parts.splice(i,1); renderPartsBody(); }
-
-// Step 3: 3D view + AI criticism
-function renderStep3(body) {
-  body.innerHTML = `
-    <div class="rcard">
-      <h3>📐 Afmetingen</h3>
-      <div class="stat"><span>Breedte</span><span>${S.dimensions.breedte} mm</span></div>
-      <div class="stat"><span>Hoogte</span><span>${S.dimensions.hoogte} mm</span></div>
-      <div class="stat"><span>Diepte</span><span>${S.dimensions.diepte} mm</span></div>
-      <div class="stat"><span>Onderdelen</span><span>${S.parts.reduce((a,p)=>a+p.aantal,0)}×</span></div>
-    </div>
-
-    ${S.criticism ? `
-    <div class="crit-card">
-      <h3>🤖 AI Advies</h3>
-      ${S.criticism.punten.map(p => `<div class="crit-item">${p}</div>`).join('')}
-    </div>` : '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px">AI analyseert het ontwerp...</div>'}
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <button class="btn btn-outline" onclick="goStep(2)">← Onderdelen</button>
-    </div>
-  `;
-  document.getElementById('approvalText').textContent = 'Ben je tevreden met dit ontwerp?';
+  S.parts.push({naam:'Nieuw deel',l:400,w:300,d:S.mat.dikte,n:1});
+  renderParts();
 }
 
-async function generate3D() {
-  // Read latest values from input fields if still on step 2
-  const partsInputs = document.querySelectorAll('#partsBody tr');
-  partsInputs.forEach((row, i) => {
-    const inputs = row.querySelectorAll('input');
-    if (inputs.length >= 5 && S.parts[i]) {
-      S.parts[i].naam    = inputs[0].value;
-      S.parts[i].lengte  = +inputs[1].value;
-      S.parts[i].breedte = +inputs[2].value;
-      S.parts[i].dikte   = +inputs[3].value;
-      S.parts[i].aantal  = +inputs[4].value;
-    }
-  });
-  updateDimFromParts();
-  showLoading('3D model bouwen...');
+async function step3go() {
+  showLoader('3D model bouwen...');
   build3D();
-  await getCriticism();
-  hideLoading();
-  goStep(3);
-  addMsg('ai', S.criticism ? `Ik heb het ontwerp bekeken. ${S.criticism.punten[0]}` : 'Het 3D model is klaar! Bekijk het ontwerp en laat weten of je aanpassingen wilt.');
+  updateStats();
+  goPage(4);
+  addMsg('ai','Het 3D model is klaar! Draai het rond om alle kanten te bekijken. Wil je iets aanpassen? Typ het hieronder.');
+  hideLoader();
+  // Get AI feedback in background
+  getAIFeedback();
 }
 
-async function getCriticism() {
-  try {
-    const partsDesc = S.parts.map(p => `${p.naam}: ${p.lengte}×${p.breedte}×${p.dikte}mm, ${p.aantal}×`).join('\n');
-    const resp = await callClaude([{
-      role:'user',
-      content: `Je bent een Nederlandse timmerman. Beoordeel dit ontwerp en geef constructieve kritiek.
-Project: ${S.description}
-Maten: ${S.dimensions.breedte}×${S.dimensions.hoogte}×${S.dimensions.diepte}mm
-Onderdelen:\n${partsDesc}
-
-Geef ALLEEN dit JSON terug:
-{"punten":["punt1","punt2","punt3"],"score":85,"aanbevelingen":"..."}`
-    }], 800);
-    const clean = resp.replace(/```json|```/g,'').trim();
-    S.criticism = JSON.parse(clean);
-  } catch(e) {
-    S.criticism = { punten:['Het ontwerp ziet er solide uit.','Controleer of de afmetingen kloppen voor de ruimte.'], score:80 };
-  }
-}
-
-// Step 4: Revision
-function renderStep4(body) {
-  body.innerHTML = `
-    <div class="rcard">
-      <h3>✏️ Revisie ${S.revisions}</h3>
-      <div style="font-size:11px;color:var(--text2);line-height:1.8">
-        Beschrijf in de chat hieronder wat je wilt aanpassen. De AI past het ontwerp direct aan.
-      </div>
-    </div>
-    ${S.criticism ? `
-    <div class="crit-card">
-      <h3>Laatste advies</h3>
-      ${S.criticism.punten.map(p => `<div class="crit-item">${p}</div>`).join('')}
-    </div>` : ''}
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-outline" onclick="goStep(3)">← Terug</button>
-    </div>
-  `;
-  document.getElementById('approvalText').textContent = `Revisie ${S.revisions} — Tevreden?`;
-}
-
-async function requestRevision() {
-  S.revisions++;
-  addMsg('system', `Revisie ${S.revisions} gestart`);
-  addMsg('ai', 'Wat wil je aanpassen? Typ je wensen in de chat hieronder. Bijvoorbeeld: "Maak de kast 20cm breder" of "Voeg een lade toe onderaan".');
-  goStep(4);
-}
-
-function approveDesign() {
-  S.approved = true;
-  calculateCutPlan();
-  showView('view-akkoord');
-  document.getElementById('approvalBar').style.display = 'none';
-  addMsg('ai', '🎉 Geweldig! Het ontwerp is goedgekeurd. Zaagplan en bestellijst zijn klaar!');
-}
-
-function showFinalPlan() {
-  goStep(5);
-}
-
-// Step 5: Cut plan + order list
-function renderStep5(body) {
-  const totalSheets = S.cutPlan.length;
-  const totalParts = S.parts.reduce((a,p)=>a+p.aantal,0);
-
-  body.innerHTML = `
-    <div class="rcard">
-      <h3>📊 Samenvatting</h3>
-      <div class="stat"><span>Platen nodig</span><span>${totalSheets}×</span></div>
-      <div class="stat"><span>Onderdelen</span><span>${totalParts}×</span></div>
-      <div class="stat"><span>Revisies</span><span>${S.revisions}×</span></div>
-    </div>
-
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-gold" style="width:100%" onclick="exportPDF()">📄 PDF exporteren</button>
-      <button class="btn btn-outline" style="width:100%" onclick="goStep(3)">← 3D bekijken</button>
-    </div>
-  `;
-  renderCutPlan();
-  renderOrderList();
-  renderSummary();
-}
-
-// ═══════════════════════════════════════════════
-// 3D ENGINE
-// ═══════════════════════════════════════════════
-let threeR, threeS, threeC, rotX=0.4, rotY=0.5, zoom=2000, panX=0, panY=0, isDrag=false, isRight=false, lastX=0, lastY=0;
+// ═══ 3D ═══
+let R3, SC, CAM, rot={x:.3,y:.5}, zoom=2500, pan={x:0,y:0}, drag={on:false,right:false,lx:0,ly:0};
 
 function build3D() {
-  const canvas = document.getElementById('threeCanvas');
-  const container = canvas.parentElement;
-  const W = container.clientWidth || 800, H = container.clientHeight || 500;
+  const canvas = document.getElementById('c3d');
+  const wrap = document.getElementById('c3d-wrap');
+  const W = wrap.clientWidth||360, H = 320;
 
-  if (!threeR) {
-    threeR = new THREE.WebGLRenderer({ canvas, antialias:true });
-    threeR.shadowMap.enabled = true;
-    threeC = new THREE.PerspectiveCamera(45, W/H, 1, 20000);
+  // Photo background
+  const img = document.getElementById('photoPreview3d');
+  if (S.photo) { img.src = S.photo; img.style.display='block'; }
+  else { img.style.display='none'; }
 
-    // Mouse
-    canvas.addEventListener('mousedown', e => { isDrag=true; isRight=e.button===2; lastX=e.clientX; lastY=e.clientY; });
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
-    window.addEventListener('mouseup', () => isDrag=false);
-    window.addEventListener('mousemove', e => {
-      if (!isDrag) return;
-      const dx=e.clientX-lastX, dy=e.clientY-lastY;
-      if (isRight) { panX-=dx*0.8; panY+=dy*0.8; }
-      else { rotY+=dx*0.005; rotX+=dy*0.005; rotX=Math.max(-1.2,Math.min(1.2,rotX)); }
-      lastX=e.clientX; lastY=e.clientY;
+  if (!R3) {
+    R3 = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+    R3.setClearColor(0x000000, 0);
+    R3.shadowMap.enabled = true;
+    CAM = new THREE.PerspectiveCamera(45, W/H, 1, 20000);
+
+    // Touch events
+    let lt=0, lpd=0;
+    canvas.addEventListener('touchstart', e=>{
+      if(e.touches.length===1){drag.on=true;drag.lx=e.touches[0].clientX;drag.ly=e.touches[0].clientY;}
+      if(e.touches.length===2){lpd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+    },{passive:true});
+    canvas.addEventListener('touchend',()=>drag.on=false,{passive:true});
+    canvas.addEventListener('touchmove',e=>{
+      e.preventDefault();
+      if(e.touches.length===1&&drag.on){
+        rot.y+=(e.touches[0].clientX-drag.lx)*.005;
+        rot.x+=(e.touches[0].clientY-drag.ly)*.005;
+        rot.x=Math.max(-1.2,Math.min(1.2,rot.x));
+        drag.lx=e.touches[0].clientX;drag.ly=e.touches[0].clientY;
+      }
+      if(e.touches.length===2){
+        const pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+        zoom-=(pd-lpd)*8; zoom=Math.max(400,Math.min(8000,zoom)); lpd=pd;
+      }
+    },{passive:false});
+    // Mouse events
+    canvas.addEventListener('mousedown',e=>{drag.on=true;drag.right=e.button===2;drag.lx=e.clientX;drag.ly=e.clientY;});
+    canvas.addEventListener('contextmenu',e=>e.preventDefault());
+    window.addEventListener('mouseup',()=>drag.on=false);
+    window.addEventListener('mousemove',e=>{
+      if(!drag.on)return;
+      const dx=e.clientX-drag.lx,dy=e.clientY-drag.ly;
+      if(drag.right){pan.x-=dx*.5;pan.y+=dy*.5;}
+      else{rot.y+=dx*.005;rot.x+=dy*.005;rot.x=Math.max(-1.2,Math.min(1.2,rot.x));}
+      drag.lx=e.clientX;drag.ly=e.clientY;
     });
-    canvas.addEventListener('wheel', e => { zoom+=e.deltaY*2; zoom=Math.max(300,Math.min(8000,zoom)); });
+    canvas.addEventListener('wheel',e=>{zoom+=e.deltaY*2;zoom=Math.max(400,Math.min(8000,zoom));});
 
-    function loop() {
+    (function loop(){
       requestAnimationFrame(loop);
-      if (!threeS) return;
-      const cx = Math.sin(rotY)*Math.cos(rotX)*zoom+panX;
-      const cy = Math.sin(rotX)*zoom + (S.dimensions.hoogte||1000)/2 + panY;
-      const cz = Math.cos(rotY)*Math.cos(rotX)*zoom;
-      threeC.position.set(cx,cy,cz);
-      threeC.lookAt(panX, (S.dimensions.hoogte||1000)/2+panY, 0);
-      threeR.render(threeS, threeC);
-    }
-    loop();
+      if(!SC||!R3)return;
+      const cx=Math.sin(rot.y)*Math.cos(rot.x)*zoom+pan.x;
+      const cy=Math.sin(rot.x)*zoom+S.dims.h/2+pan.y;
+      const cz=Math.cos(rot.y)*Math.cos(rot.x)*zoom;
+      CAM.position.set(cx,cy,cz);
+      CAM.lookAt(pan.x,S.dims.h/2+pan.y,0);
+      R3.render(SC,CAM);
+    })();
   }
 
-  threeR.setSize(W, H);
-  threeC.aspect = W/H;
-  threeC.updateProjectionMatrix();
+  R3.setSize(W,H);
+  CAM.aspect=W/H;
+  CAM.updateProjectionMatrix();
 
-  // Build scene
-  threeS = new THREE.Scene();
-  // Use photo as background if available
-  if (S.photoBase64) {
-    const loader = new THREE.TextureLoader();
-    loader.load(S.photoBase64, tex => { threeS.background = tex; });
-  } else {
-    threeS.background = new THREE.Color(0x0F0D0A);
-  }
-  threeS.fog = new THREE.Fog(0x0F0D0A, 3000, 8000);
-
+  SC = new THREE.Scene();
+  // If photo: transparent bg (photo shown via CSS underneath)
   // Lights
-  threeS.add(new THREE.AmbientLight(0xFFE8C0, 0.7));
-  const sun = new THREE.DirectionalLight(0xFFFFE0, 1.2);
-  sun.position.set(600,1500,800); sun.castShadow=true; threeS.add(sun);
-  threeS.add(new THREE.PointLight(0xC8A050,0.4,3000));
+  SC.add(new THREE.AmbientLight(0xFFE8C0,.8));
+  const sun=new THREE.DirectionalLight(0xFFFFE8,1.3);
+  sun.position.set(500,1200,800);sun.castShadow=true;SC.add(sun);
+  SC.add(new THREE.HemisphereLight(0xFFE0A0,0x403020,.4));
 
-  // Grid floor
-  const grid = new THREE.GridHelper(4000,40,0x2A2418,0x1A1610);
-  threeS.add(grid);
+  // Floor
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000),new THREE.MeshLambertMaterial({color:0x201810,transparent:true,opacity:S.photo?.5:.8}));
+  floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;SC.add(floor);
 
-  // Materials with wood-like colors
-  const woodColors = [0xC4956A,0xB0784A,0xD4A870,0x8A6040,0xC8B090,0xA07848];
-  const mats = woodColors.map(c => new THREE.MeshLambertMaterial({ color:c }));
+  // Grid (subtle)
+  if(!S.photo){const g=new THREE.GridHelper(4000,40,0x2A2010,0x1A1408);SC.add(g);}
 
-  const b = S.dimensions.breedte||800, h=S.dimensions.hoogte||2000, d=S.dimensions.diepte||400;
-  const dikte = 18;
-  panX = b/2; panY = 0;
+  const wc=[0xC4956A,0xB0784A,0xD4A870,0x8A6040,0xC8B090,0xA07848,0xD8B880,0x906030];
+  const {b,h,d,aw} = S.dims;
+  const dk = S.mat.dikte;
 
-  S.parts.forEach((part, pi) => {
-    const mat = mats[pi % mats.length];
-    const naam = part.naam.toLowerCase();
+  S.parts.forEach((part,pi)=>{
+    const mat=new THREE.MeshLambertMaterial({color:wc[pi%wc.length]});
+    const nm=part.naam.toLowerCase();
 
-    for (let n=0; n<part.aantal; n++) {
-      let geo, mesh, px=b/2, py=h/2, pz=d/2;
+    for(let ni=0;ni<part.n;ni++){
+      let geo,px=b/2,py=h/2,pz=d/2;
 
-      if (naam.includes('zijwand') || naam.includes('zij')) {
-        geo = new THREE.BoxGeometry(dikte, part.lengte, part.breedte);
-        px = n===0 ? dikte/2 : b-dikte/2;
-        py = part.lengte/2;
-      } else if (naam.includes('bodem')) {
-        geo = new THREE.BoxGeometry(part.lengte, dikte, part.breedte);
-        py = dikte/2;
-      } else if (naam.includes('top') || naam.includes('dak')) {
-        geo = new THREE.BoxGeometry(part.lengte, dikte, part.breedte);
-        py = h - dikte/2;
-      } else if (naam.includes('legplank') || naam.includes('plank')) {
-        geo = new THREE.BoxGeometry(part.lengte, dikte, part.breedte);
-        const vakH = (h - 2*dikte) / (S.parts.find(p=>p.naam.toLowerCase().includes('legplank'))?.aantal+1||4);
-        py = dikte + vakH*(n+1);
-      } else if (naam.includes('achterwand')) {
-        geo = new THREE.BoxGeometry(b, h, part.dikte);
-        pz = part.dikte/2;
-        const m = new THREE.MeshLambertMaterial({color:0x302820,transparent:true,opacity:0.5});
-        mesh = new THREE.Mesh(geo,m);
-        mesh.position.set(px,py,pz);
-        threeS.add(mesh); continue;
-      } else if (naam.includes('tafelblad') || naam.includes('blad')) {
-        geo = new THREE.BoxGeometry(part.lengte, part.dikte, part.breedte);
-        py = h - part.dikte/2;
-      } else if (naam.includes('poot')) {
-        geo = new THREE.BoxGeometry(dikte*2, part.lengte, dikte*2);
-        const pIdx = n % 4;
-        px = pIdx<2 ? dikte : b-dikte;
-        pz = pIdx%2===0 ? dikte : d-dikte;
-        py = part.lengte/2;
+      if(nm.includes('zijwand')||nm.includes('zij')){
+        geo=new THREE.BoxGeometry(dk,part.l,part.w);
+        px=ni===0?dk/2:b-dk/2; py=part.l/2;
+      } else if(nm.includes('bodem')){
+        geo=new THREE.BoxGeometry(part.l,dk,part.w);
+        py=dk/2;
+      } else if(nm.includes('top')||nm.includes('dak')){
+        geo=new THREE.BoxGeometry(part.l,dk,part.w);
+        py=h-dk/2;
+      } else if(nm.includes('legplank')||nm.includes('plank')){
+        geo=new THREE.BoxGeometry(part.l,dk,part.w);
+        const legN=S.parts.filter(p=>p.naam.toLowerCase().includes('legplank')).length;
+        const ih=h-2*dk; py=dk+ih/(legN+1)*(ni+1);
+      } else if(nm.includes('achterwand')){
+        const m2=new THREE.MeshLambertMaterial({color:0x302418,transparent:true,opacity:.5});
+        const g2=new THREE.BoxGeometry(b,h,dk);
+        const m3=new THREE.Mesh(g2,m2);m3.position.set(b/2,h/2,dk/2);
+        addEdges(m3,g2);SC.add(m3);continue;
+      } else if(nm.includes('tafelblad')||nm.includes('blad')){
+        geo=new THREE.BoxGeometry(part.l,dk,part.w);
+        py=h-dk/2;
+      } else if(nm.includes('poot')){
+        geo=new THREE.BoxGeometry(dk*2,part.l,dk*2);
+        const corners=[[dk,0,dk],[dk,0,d-dk],[b-dk,0,dk],[b-dk,0,d-dk]];
+        px=corners[ni%4][0];py=part.l/2;pz=corners[ni%4][2];
+      } else if(nm.includes('dwars')||nm.includes('regel')){
+        geo=new THREE.BoxGeometry(part.l,dk,part.w);
+        py=120;pz=ni===0?dk*2+part.w/2:d-dk*2-part.w/2;
       } else {
-        geo = new THREE.BoxGeometry(part.lengte, part.dikte, part.breedte);
+        geo=new THREE.BoxGeometry(part.l,dk,part.w);
       }
 
-      mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(px, py, pz);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-
-      // Wireframe edge
-      const edges = new THREE.EdgesGeometry(geo);
-      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color:0x604830,transparent:true,opacity:0.3}));
-      mesh.add(line);
-
-      threeS.add(mesh);
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.position.set(px,py,pz);
+      mesh.castShadow=true;mesh.receiveShadow=true;
+      addEdges(mesh,geo);
+      SC.add(mesh);
     }
   });
 }
 
-// ═══════════════════════════════════════════════
-// CUT PLAN
-// ═══════════════════════════════════════════════
-function calculateCutPlan() {
-  const mainMatId = S.materials[0] || 'multiplex18';
-  const mainMat = MATERIALS.find(m=>m.id===mainMatId) || MATERIALS[0];
-  const plaatW = mainMat.w, plaatH = mainMat.h, zaag = S.dimensions.zaagSnede||3;
+function addEdges(mesh,geo){
+  const e=new THREE.EdgesGeometry(geo);
+  const l=new THREE.LineSegments(e,new THREE.LineBasicMaterial({color:0x604828,transparent:true,opacity:.4}));
+  mesh.add(l);
+}
 
-  let items = [];
-  S.parts.forEach((p,pi) => {
-    for (let n=0; n<p.aantal; n++) {
-      items.push({ ...p, partIdx:pi, id:`${pi}_${n}`, label: p.aantal>1 ? `${p.naam} ${n+1}` : p.naam });
+function updateStats(){
+  document.getElementById('s3dB').textContent=S.dims.b+'mm';
+  document.getElementById('s3dH').textContent=S.dims.h+'mm';
+  document.getElementById('s3dD').textContent=S.dims.d+'mm';
+  document.getElementById('s3dN').textContent=S.parts.reduce((a,p)=>a+p.n,0)+'×';
+}
+
+// ═══ AI CHAT ═══
+function addMsg(role,text){
+  const el=document.getElementById('chatMsgs');
+  const d=document.createElement('div');
+  d.className='msg msg-'+role;
+  d.textContent=text;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
+}
+
+function chatKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}
+}
+
+async function sendMsg(){
+  const inp=document.getElementById('chatIn');
+  const txt=inp.value.trim();
+  if(!txt)return;
+  inp.value='';
+  addMsg('user',txt);
+  S.chat.push({role:'user',content:txt});
+
+  const st=document.getElementById('chatStatus');
+  st.classList.add('on');
+
+  try {
+    // Build clean alternating messages
+    const sysTxt = `Je bent een ervaren Nederlandse timmerman-assistent in de TimmerAI app.
+Project: ${S.desc||'onbekend'} | Type: ${S.type}
+Huidige afmetingen: ${S.dims.b}mm breed × ${S.dims.h}mm hoog × ${S.dims.d}mm diep
+Materiaal: ${S.mat.label}
+Onderdelen: ${S.parts.map(p=>`${p.naam}(${p.l}×${p.w}mm,${p.n}×)`).join(', ')}
+
+Reageer altijd in het Nederlands. Geef praktisch timmermansadvies.
+Als je afmetingen wilt aanpassen, zet dan aan het einde van je antwoord:
+[MATEN:breedte=${S.dims.b},hoogte=${S.dims.h},diepte=${S.dims.d}]
+Als je onderdelen wilt wijzigen:
+[DELEN:naam=Bodem,l=764,w=382,d=18,n=1|naam=Top,l=764,w=382,d=18,n=1]`;
+
+    // Always alternating: user/assistant
+    const msgs = [{role:'user',content:sysTxt},{role:'assistant',content:'Begrepen, ik help je met dit project!'}];
+    S.chat.slice(-8).forEach(m=>msgs.push(m));
+
+    const resp = await claude(msgs, 600);
+    st.classList.remove('on');
+
+    // Parse updates
+    const matenMatch = resp.match(/\[MATEN:([^\]]+)\]/);
+    const delenMatch = resp.match(/\[DELEN:([^\]]+)\]/);
+
+    if(matenMatch){
+      const vals={};
+      matenMatch[1].split(',').forEach(pair=>{
+        const [k,v]=pair.split('=');
+        vals[k.trim()]=+v;
+      });
+      if(vals.breedte) S.dims.b=vals.breedte;
+      if(vals.hoogte)  S.dims.h=vals.hoogte;
+      if(vals.diepte)  S.dims.d=vals.diepte;
+      genParts();
+      build3D();updateStats();
+      addMsg('sys','↻ Maten bijgewerkt & 3D hergenereerd');
+    }
+    if(delenMatch){
+      const newParts=[];
+      delenMatch[1].split('|').forEach(seg=>{
+        const p={};
+        seg.split(',').forEach(kv=>{const[k,v]=kv.split('=');p[k.trim()]=isNaN(v)?v:+v;});
+        if(p.naam) newParts.push({naam:p.naam,l:p.l||400,w:p.w||300,d:p.d||18,n:p.n||1});
+      });
+      if(newParts.length>0){S.parts=newParts;build3D();updateStats();addMsg('sys','↻ Onderdelen bijgewerkt');}
+    }
+
+    const cleanResp=resp.replace(/\[MATEN:[^\]]+\]/g,'').replace(/\[DELEN:[^\]]+\]/g,'').trim();
+    addMsg('ai',cleanResp);
+    S.chat.push({role:'assistant',content:cleanResp});
+
+  } catch(err){
+    st.classList.remove('on');
+    addMsg('ai','Er ging iets mis. Probeer opnieuw.');
+    console.error(err);
+  }
+}
+
+async function getAIFeedback(){
+  try {
+    const txt=`Je bent een timmerman. Geef in 2 zinnen praktisch advies over dit project: ${S.desc||S.type}, ${S.dims.b}×${S.dims.h}×${S.dims.d}mm, ${S.mat.label}. Reageer in het Nederlands.`;
+    const resp=await claude([{role:'user',content:txt}],200);
+    addMsg('ai',resp);
+    S.chat.push({role:'assistant',content:resp});
+  } catch(e){}
+}
+
+// ═══ APPROVE ═══
+function doRevise(){
+  addMsg('ai','Wat wil je aanpassen? Beschrijf het hieronder en ik pas het ontwerp direct aan!');
+  document.getElementById('chatIn').focus();
+}
+
+function doApprove(){
+  showLoader('Zaagplan berekenen...');
+  calcCutPlan();
+  renderZaagplan();
+  goPage(5);
+  hideLoader();
+}
+
+// ═══ CUT PLAN ═══
+function calcCutPlan(){
+  const pw=S.mat.pw, ph=S.mat.ph, zaag=S.dims.z;
+  let items=[];
+  S.parts.forEach((p,pi)=>{
+    for(let ni=0;ni<p.n;ni++){
+      items.push({...p,pi,label:p.n>1?`${p.naam} ${ni+1}`:p.naam,lengte:p.l,breedte:p.w});
     }
   });
-  items.sort((a,b) => (b.lengte*b.breedte)-(a.lengte*a.breedte));
+  items.sort((a,b)=>b.lengte*b.breedte-a.lengte*a.breedte);
 
-  let sheets = [];
-  function tryPlace(item, sheet) {
-    for (let i=0; i<sheet.spaces.length; i++) {
-      const s = sheet.spaces[i];
-      const fits1 = item.lengte<=s.w && item.breedte<=s.h;
-      const fits2 = item.breedte<=s.w && item.lengte<=s.h;
-      if (fits1 || fits2) {
-        const useLen = fits1 ? item.lengte : item.breedte;
-        const useWid = fits1 ? item.breedte : item.lengte;
-        const placed = { ...item, x:s.x, y:s.y, lengte:useLen, breedte:useWid, rotated:!fits1 };
-        sheet.spaces.splice(i,1);
-        if (s.w-useLen-zaag>5) sheet.spaces.push({x:s.x+useLen+zaag,y:s.y,w:s.w-useLen-zaag,h:useWid});
-        if (s.h-useWid-zaag>5) sheet.spaces.push({x:s.x,y:s.y+useWid+zaag,w:s.w,h:s.h-useWid-zaag});
-        sheet.spaces.sort((a,b)=>(a.y*10000+a.x)-(b.y*10000+b.x));
-        sheet.placed.push(placed);
-        return true;
+  let sheets=[];
+  function place(item,sheet){
+    for(let i=0;i<sheet.sp.length;i++){
+      const s=sheet.sp[i];
+      for(const [fl,fw] of [[item.lengte,item.breedte],[item.breedte,item.lengte]]){
+        if(fl<=s.w&&fw<=s.h){
+          const placed={...item,x:s.x,y:s.y,lengte:fl,breedte:fw,rotated:fl!==item.lengte};
+          sheet.sp.splice(i,1);
+          if(s.w-fl-zaag>10) sheet.sp.push({x:s.x+fl+zaag,y:s.y,w:s.w-fl-zaag,h:fw});
+          if(s.h-fw-zaag>10) sheet.sp.push({x:s.x,y:s.y+fw+zaag,w:s.w,h:s.h-fw-zaag});
+          sheet.sp.sort((a,b)=>a.y*10000+a.x-(b.y*10000+b.x));
+          sheet.placed.push(placed);
+          return true;
+        }
       }
     }
     return false;
   }
 
-  for (const item of items) {
-    let placed = false;
-    for (const sheet of sheets) { if (tryPlace(item,sheet)) { placed=true; break; } }
-    if (!placed) {
-      const ns = { spaces:[{x:0,y:0,w:plaatW,h:plaatH}], placed:[], id:sheets.length };
-      if (tryPlace(item,ns)) sheets.push(ns);
-    }
+  for(const item of items){
+    let done=false;
+    for(const s of sheets){if(place(item,s)){done=true;break;}}
+    if(!done){const ns={sp:[{x:0,y:0,w:pw,h:ph}],placed:[],id:sheets.length};if(place(item,ns))sheets.push(ns);}
   }
-  S.cutPlan = sheets;
-  S.cutPlan._plaatW = plaatW;
-  S.cutPlan._plaatH = plaatH;
+  S.cutPlan=sheets;
+  S.cutPlan.pw=pw; S.cutPlan.ph=ph;
 }
 
-function renderCutPlan() {
-  const wrap = document.getElementById('cutWrap');
-  if (!wrap || !S.cutPlan.length) return;
-  wrap.innerHTML = '';
+function renderZaagplan(){
+  const pw=S.cutPlan.pw||2440, ph=S.cutPlan.ph||1220;
+  const sheets=S.cutPlan;
+  const totalParts=S.parts.reduce((a,p)=>a+p.n,0);
+  const totalArea=S.parts.reduce((a,p)=>a+(p.l/1000)*(p.w/1000)*p.n,0);
+  const usedArea=sheets.length*pw/1000*ph/1000;
+  const eff=Math.round(totalArea/usedArea*100);
+  const kosten=sheets.length*S.mat.prijs;
 
-  const plaatW = S.cutPlan._plaatW||2440, plaatH = S.cutPlan._plaatH||1220;
-  const maxW = wrap.clientWidth - 40 || 600;
-  const scale = Math.min(maxW/plaatW, 300/plaatH);
+  document.getElementById('zpPlaten').textContent=sheets.length+'×';
+  document.getElementById('zpDelen').textContent=totalParts+'×';
+  document.getElementById('zpEff').textContent=eff+'%';
+  document.getElementById('zpKosten').textContent='±€'+(kosten+20).toFixed(0);
 
   // Legend
-  const legendDiv = document.createElement('div');
-  legendDiv.className = 'legend';
-  S.parts.forEach((p,i) => {
-    legendDiv.innerHTML += `<div class="leg-item"><div class="leg-color" style="background:${COLORS[i%COLORS.length]}"></div>${p.naam}</div>`;
-  });
-  wrap.appendChild(legendDiv);
+  const leg=document.getElementById('zpLegend');
+  leg.innerHTML=S.parts.map((p,i)=>`<div class="li"><div class="lc" style="background:${COLS[i%COLS.length]}"></div>${p.naam}</div>`).join('');
 
-  S.cutPlan.forEach((sheet,si) => {
-    const div = document.createElement('div');
-    div.className = 'cut-sheet';
-    div.innerHTML = `<div class="cut-sheet-title">PLAAT ${si+1} — ${plaatW}×${plaatH}mm</div>`;
+  // Sheets
+  const wrap=document.getElementById('zpSheets');
+  wrap.innerHTML='';
+  const maxW=Math.min(document.body.clientWidth-60, 640);
+  const scale=Math.min(maxW/pw, 200/ph);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(plaatW*scale)+2;
-    canvas.height = Math.round(plaatH*scale)+2;
-    canvas.style.cssText = 'display:block;border:1px solid rgba(200,160,80,0.2);border-radius:3px;max-width:100%';
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#1E1B15';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    sheet.placed.forEach(p => {
-      const col = COLORS[p.partIdx%COLORS.length];
-      const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
-      ctx.fillStyle = `rgba(${r},${g},${b},0.55)`;
+  sheets.forEach((sh,si)=>{
+    const div=document.createElement('div');
+    div.className='sheet-wrap';
+    div.innerHTML=`<div class="sheet-title">PLAAT ${si+1} — ${pw}×${ph}mm (${S.mat.label})</div>`;
+    const cv=document.createElement('canvas');
+    cv.width=Math.round(pw*scale);cv.height=Math.round(ph*scale);
+    cv.className='sheet-canvas';
+    const ctx=cv.getContext('2d');
+    ctx.fillStyle='#1A1610';ctx.fillRect(0,0,cv.width,cv.height);
+    sh.placed.forEach(p=>{
+      const c=COLS[p.pi%COLS.length];
+      const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b2=parseInt(c.slice(5,7),16);
+      ctx.fillStyle=`rgba(${r},${g},${b2},.6)`;
       ctx.fillRect(p.x*scale,p.y*scale,p.lengte*scale,p.breedte*scale);
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle=c;ctx.lineWidth=1;
       ctx.strokeRect(p.x*scale,p.y*scale,p.lengte*scale,p.breedte*scale);
-
-      if (p.lengte*scale>30 && p.breedte*scale>14) {
-        ctx.fillStyle = 'rgba(232,223,200,0.9)';
-        ctx.font = `bold ${Math.min(10,p.lengte*scale/7)}px IBM Plex Mono,monospace`;
-        ctx.textAlign = 'center';
-        ctx.fillText(p.label, (p.x+p.lengte/2)*scale, (p.y+p.breedte/2)*scale+3);
-        ctx.font = `${Math.min(8,p.lengte*scale/9)}px IBM Plex Mono,monospace`;
-        ctx.fillStyle = 'rgba(160,144,112,0.8)';
-        ctx.fillText(`${p.lengte}×${p.breedte}`, (p.x+p.lengte/2)*scale, (p.y+p.breedte/2)*scale+13);
+      if(p.lengte*scale>28&&p.breedte*scale>14){
+        ctx.fillStyle='rgba(224,212,184,.9)';
+        ctx.font=`bold ${Math.min(9,p.lengte*scale/8)}px JetBrains Mono,monospace`;
+        ctx.textAlign='center';
+        ctx.fillText(p.label,(p.x+p.lengte/2)*scale,(p.y+p.breedte/2)*scale+3);
+        if(p.lengte*scale>40){
+          ctx.font=`${Math.min(7,p.lengte*scale/10)}px JetBrains Mono,monospace`;
+          ctx.fillStyle='rgba(180,160,120,.7)';
+          ctx.fillText(`${p.lengte}×${p.breedte}`,(p.x+p.lengte/2)*scale,(p.y+p.breedte/2)*scale+12);
+        }
       }
     });
-
-    ctx.strokeStyle = 'rgba(200,160,80,0.5)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(0,0,canvas.width-1,canvas.height-1);
-
-    div.appendChild(canvas);
-    wrap.appendChild(div);
-  });
-}
-
-// ═══════════════════════════════════════════════
-// ORDER LIST
-// ═══════════════════════════════════════════════
-function renderOrderList() {
-  const wrap = document.getElementById('orderWrap');
-  if (!wrap) return;
-
-  // Group parts by material
-  const byMat = {};
-  S.parts.forEach(p => {
-    const k = p.materiaal || 'Onbekend';
-    if (!byMat[k]) byMat[k] = [];
-    byMat[k].push(p);
+    ctx.strokeStyle='rgba(200,160,64,.5)';ctx.lineWidth=1.5;
+    ctx.strokeRect(0,0,cv.width-1,cv.height-1);
+    div.appendChild(cv);wrap.appendChild(div);
   });
 
-  let totalPrice = 0;
-  let html = '';
+  // Parts list
+  document.getElementById('zpPartsBody').innerHTML=S.parts.map((p,i)=>`
+    <tr>
+      <td style="opacity:.4">${i+1}</td>
+      <td>${p.naam}</td>
+      <td>${p.l}mm</td>
+      <td>${p.w}mm</td>
+      <td>${p.d}mm</td>
+      <td>${p.n}×</td>
+      <td style="font-size:9px;color:var(--dim)">${p.mat||S.mat.label}</td>
+    </tr>`).join('');
 
-  // Plaatmateriaal
-  html += `<div class="rcard"><h3>🪵 Plaatmateriaal</h3>`;
-  S.cutPlan.forEach((sheet,i) => {
-    const matId = S.materials[0]||'multiplex18';
-    const mat = MATERIALS.find(m=>m.id===matId)||MATERIALS[0];
-    const price = mat.prijs;
-    totalPrice += price;
-    html += `<div class="price-row"><span>Plaat ${i+1} — ${mat.label} (${mat.w}×${mat.h}mm)</span><span>€ ${price.toFixed(2)}</span></div>`;
-  });
-  html += `</div>`;
+  // Order list
+  const totalN=S.parts.reduce((a,p)=>a+p.n,0);
+  const schroeven=Math.ceil(totalN*8);
+  let total=kosten;
+  const deugels=Math.ceil(totalN*4/50)*3.50;
+  const schrPrijs=Math.ceil(schroeven/200)*4.50;
+  const verf=Math.ceil(totalArea/10)*18;
+  total+=deugels+schrPrijs+verf+8;
 
-  // Bevestigingsmiddelen
-  const totalOnderdelen = S.parts.reduce((a,p)=>a+p.aantal,0);
-  const schroeven = Math.ceil(totalOnderdelen * 8);
-  const schroefPrijs = Math.ceil(schroeven/200) * 4.50;
-  totalPrice += schroefPrijs;
-
-  html += `<div class="rcard"><h3>🔩 Bevestigingsmiddelen</h3>
-    <div class="price-row"><span>Stelschroeven 4×40mm (${schroeven}×, zakje 200)</span><span>€ ${schroefPrijs.toFixed(2)}</span></div>
-    <div class="price-row"><span>Plaatdeugels 6mm (±${totalOnderdelen*4}×)</span><span>€ ${(Math.ceil(totalOnderdelen*4/50)*3.50).toFixed(2)}</span></div>
-  </div>`;
-  totalPrice += Math.ceil(totalOnderdelen*4/50)*3.50;
-
-  // Afwerking
-  const oppervlak = S.parts.reduce((a,p)=>a+(p.lengte/1000)*(p.breedte/1000)*p.aantal,0);
-  const verfLiter = Math.ceil(oppervlak/10);
-  const verfPrijs = verfLiter * 18;
-  totalPrice += verfPrijs;
-
-  html += `<div class="rcard"><h3>🎨 Afwerking</h3>
-    <div class="price-row"><span>Grondverf/primer (${verfLiter}L)</span><span>€ ${verfPrijs.toFixed(2)}</span></div>
-    <div class="price-row"><span>Schuurpapier P120 + P240</span><span>€ 8.00</span></div>
-  </div>`;
-  totalPrice += 8;
-
-  // Totaal
-  html += `<div class="rcard" style="border-color:rgba(200,160,80,0.4)">
-    <div class="price-row" style="font-size:14px"><span>💰 Totaal geschatte kosten</span><span>€ ${totalPrice.toFixed(2)}</span></div>
-    <div style="font-size:9px;color:var(--text3);margin-top:8px;letter-spacing:1px">* Indicatieve prijzen, exclusief BTW en levering</div>
-  </div>`;
-
-  wrap.innerHTML = html;
-}
-
-function renderSummary() {
-  const wrap = document.getElementById('summWrap');
-  if (!wrap) return;
-  const totalParts = S.parts.reduce((a,p)=>a+p.aantal,0);
-  wrap.innerHTML = `
-    <div class="rcard">
-      <h3>📋 Project samenvatting</h3>
-      <div class="stat"><span>Project</span><span>${S.aiAnalysis?.projectNaam||'Mijn project'}</span></div>
-      <div class="stat"><span>Type</span><span>${S.projectType||'—'}</span></div>
-      <div class="stat"><span>Afmetingen</span><span>${S.dimensions.breedte}×${S.dimensions.hoogte}×${S.dimensions.diepte}mm</span></div>
-      <div class="stat"><span>Onderdelen</span><span>${totalParts}×</span></div>
-      <div class="stat"><span>Platen nodig</span><span>${S.cutPlan.length}×</span></div>
-      <div class="stat"><span>Revisies</span><span>${S.revisions}×</span></div>
-    </div>
-    <div class="rcard">
-      <h3>🪚 Onderdelen</h3>
-      ${S.parts.map(p=>`<div class="stat"><span>${p.naam} (${p.aantal}×)</span><span>${p.lengte}×${p.breedte}×${p.dikte}mm</span></div>`).join('')}
-    </div>
+  document.getElementById('zpOrder').innerHTML=`
+    <div class="prow"><span>🪵 ${sheets.length}× ${S.mat.label} (${pw}×${ph}mm)</span><span>€ ${kosten.toFixed(2)}</span></div>
+    <div class="prow"><span>🔩 Schroeven 4×40mm (${schroeven}×)</span><span>€ ${schrPrijs.toFixed(2)}</span></div>
+    <div class="prow"><span>🔘 Deugels 6mm (${totalN*4}×)</span><span>€ ${deugels.toFixed(2)}</span></div>
+    <div class="prow"><span>🎨 Primer/verf (${Math.ceil(totalArea/10)}L)</span><span>€ ${verf.toFixed(2)}</span></div>
+    <div class="prow"><span>🧻 Schuurpapier P120+P240</span><span>€ 8.00</span></div>
+    <div class="prow"><span>💰 Totaal geschat (excl. BTW)</span><span>€ ${total.toFixed(2)}</span></div>
   `;
 }
 
-// ═══════════════════════════════════════════════
-// CHAT
-// ═══════════════════════════════════════════════
-function addMsg(type, text) {
-  const msgs = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.className = `msg msg-${type}`;
-  div.textContent = text;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-}
+// ═══ PDF ═══
+async function exportPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  doc.setFillColor(12,10,8);doc.rect(0,0,210,297,'F');
+  doc.setTextColor(200,160,64);doc.setFontSize(22);doc.setFont('helvetica','bold');
+  doc.text('TimmerAI — Zaagplan',15,20);
+  doc.setFontSize(10);doc.setTextColor(128,96,64);
+  doc.text(`${S.desc||S.type} | ${S.dims.b}×${S.dims.h}×${S.dims.d}mm | ${S.mat.label}`,15,30);
+  doc.text(new Date().toLocaleDateString('nl-NL'),15,38);
 
-function chatKeydown(e) {
-  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
-}
-
-async function sendChat() {
-  const input = document.getElementById('chatInput');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-  addMsg('user', text);
-
-  // Add to history
-  S.conversationHistory.push({ role:'user', content: text });
-
-  showLoading('Verwerken...');
-
-  try {
-    const systeemBericht = `Je bent een ervaren Nederlandse timmerman-assistent. Project: ${S.description || 'onbekend'}. Maten: ${S.dimensions.breedte||800}×${S.dimensions.hoogte||2000}×${S.dimensions.diepte||400}mm. Onderdelen: ${S.parts.map(p=>p.naam+' '+p.lengte+'x'+p.breedte).join(', ')}. Als de gebruiker maataanpassingen wil, voeg dan toe aan het EINDE: <UPDATE>{reedte\:X,\hoogte\:Y,\diepte\:Z}</UPDATE>. Als onderdelen veranderen: <PARTS>[{
-aam\:\...\,\lengte\:0,reedte\:0,\dikte\:18,antal\:1}]</PARTS>. Antwoord altijd in het Nederlands.`;
-
-    // Build proper alternating message history
-    const hist = S.conversationHistory.slice(-8);
-    const messages = [];
-    // Add system context as first user message if history is empty or starts with assistant
-    if (hist.length === 0 || hist[0].role === 'assistant') {
-      messages.push({ role:'user', content: systeemBericht });
-      messages.push({ role:'assistant', content: 'Begrepen, ik help je met je project!' });
-    }
-    hist.forEach(m => messages.push(m));
-    // Make sure last message is the current user message
-    if (messages.length === 0 || messages[messages.length-1].role !== 'user') {
-      messages.push({ role:'user', content: text + '\n\nContext: ' + systeemBericht });
-    } else {
-      messages[messages.length-1].content += '\n\nContext: ' + systeemBericht;
-    }
-
-    const resp = await callClaude(messages, 1000);
-
-    // Parse updates
-    const updateMatch = resp.match(/<UPDATE>(.*?)<\/UPDATE>/s);
-    const partsMatch  = resp.match(/<PARTS>(.*?)<\/PARTS>/s);
-
-    if (updateMatch) {
-      try {
-        const upd = JSON.parse(updateMatch[1]);
-        Object.assign(S.dimensions, upd);
-        autoGeneratePartsFromDimensions();
-        build3D();
-        addMsg('system', '↻ Maten bijgewerkt en 3D hergenereerd');
-      } catch(e) {}
-    }
-    if (partsMatch) {
-      try {
-        const newParts = JSON.parse(partsMatch[1]);
-        S.parts = newParts;
-        build3D();
-        addMsg('system', '↻ Onderdelen bijgewerkt');
-      } catch(e) {}
-    }
-
-    const cleanResp = resp.replace(/<UPDATE>.*?<\/UPDATE>/s,'').replace(/<PARTS>.*?<\/PARTS>/s,'').trim();
-    addMsg('ai', cleanResp);
-    S.conversationHistory.push({ role:'assistant', content: cleanResp });
-
-    // Re-get criticism after revision
-    if (S.step >= 3) {
-      await getCriticism();
-      renderStep(S.step);
-    }
-
-  } catch(e) {
-    addMsg('ai', 'Er ging iets mis. Probeer opnieuw.');
-  }
-  hideLoading();
-}
-
-function autoGeneratePartsFromDimensions() {
-  const {breedte:b,hoogte:h,diepte:d,achterwand:aw=6} = S.dimensions;
-  const matLabel = S.parts[0]?.materiaal || 'Multiplex 18mm';
-  S.parts = autoGenerateParts(b,h,d,18,aw,matLabel);
-}
-
-// ═══════════════════════════════════════════════
-// PDF EXPORT
-// ═══════════════════════════════════════════════
-async function exportPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-
-  // Cover
-  doc.setFillColor(15,13,10);
-  doc.rect(0,0,210,297,'F');
-  doc.setTextColor(200,160,80);
-  doc.setFontSize(28);
-  doc.text('TimmerAI', 20, 40);
-  doc.setFontSize(14);
-  doc.text('Zaagplan & Bestellijst', 20, 52);
-  doc.setFontSize(10);
-  doc.setTextColor(160,144,112);
-  doc.text(S.aiAnalysis?.projectNaam || 'Mijn Project', 20, 64);
-  doc.text(`${new Date().toLocaleDateString('nl-NL')}`, 20, 72);
-
-  // Page 2: Parts
-  doc.addPage();
-  doc.setFillColor(26,23,18);
-  doc.rect(0,0,210,297,'F');
-  let y = 20;
-  doc.setTextColor(200,160,80); doc.setFontSize(16);
-  doc.text('Onderdelenlijst', 15, y); y+=10;
-
-  doc.setFillColor(40,32,24);
-  doc.rect(15,y,180,7,'F');
-  doc.setTextColor(160,144,112); doc.setFontSize(8);
-  ['Onderdeel','Lengte','Breedte','Dikte','Aantal','Materiaal'].forEach((h,i) => {
-    doc.text(h, 15+[0,40,75,105,130,150][i], y+5);
-  });
-  y+=9;
-
-  S.parts.forEach((p,i) => {
-    if (y>275) { doc.addPage(); doc.setFillColor(26,23,18); doc.rect(0,0,210,297,'F'); y=20; }
-    if (i%2===0) { doc.setFillColor(30,27,21); doc.rect(15,y-3,180,6,'F'); }
-    doc.setTextColor(232,223,200); doc.setFontSize(8);
-    doc.text(p.naam, 15, y+1);
-    doc.text(`${p.lengte}mm`, 55, y+1);
-    doc.text(`${p.breedte}mm`, 90, y+1);
-    doc.text(`${p.dikte}mm`, 115, y+1);
-    doc.text(`${p.aantal}×`, 135, y+1);
-    doc.text(p.materiaal||'', 150, y+1);
+  let y=50;
+  doc.setTextColor(200,160,64);doc.setFontSize(13);doc.text('Onderdelenlijst',15,y);y+=8;
+  doc.setFillColor(30,22,16);doc.rect(15,y,180,6,'F');
+  doc.setTextColor(128,96,64);doc.setFontSize(8);
+  ['Onderdeel','Lengte','Breedte','Dikte','Aantal'].forEach((h,i)=>doc.text(h,15+[0,50,85,115,140][i],y+4));
+  y+=8;
+  S.parts.forEach((p,i)=>{
+    if(y>275){doc.addPage();doc.setFillColor(12,10,8);doc.rect(0,0,210,297,'F');y=20;}
+    if(i%2===0){doc.setFillColor(22,19,16);doc.rect(15,y-3,180,6,'F');}
+    doc.setTextColor(224,212,184);doc.setFontSize(8);
+    doc.text(p.naam,15,y+1);doc.text(p.l+'mm',65,y+1);doc.text(p.w+'mm',100,y+1);doc.text(p.d+'mm',130,y+1);doc.text(p.n+'×',150,y+1);
     y+=7;
   });
 
-  // Page 3: Cut plan (canvas snapshots)
-  if (S.cutPlan.length > 0) {
-    doc.addPage();
-    doc.setFillColor(26,23,18); doc.rect(0,0,210,297,'F');
-    y=20;
-    doc.setTextColor(200,160,80); doc.setFontSize(16);
-    doc.text('Zaagplan', 15, y); y+=10;
-
-    const plaatW = S.cutPlan._plaatW||2440, plaatH = S.cutPlan._plaatH||1220;
-    const scale = Math.min(175/plaatW, 80/plaatH);
-
-    for (const sheet of S.cutPlan) {
-      if (y + plaatH*scale + 20 > 285) { doc.addPage(); doc.setFillColor(26,23,18); doc.rect(0,0,210,297,'F'); y=20; }
-      doc.setFontSize(9); doc.setTextColor(160,144,112);
-      doc.text(`Plaat ${sheet.id+1}`, 15, y); y+=5;
-
-      const c = document.createElement('canvas');
-      c.width = Math.round(plaatW*scale*4); c.height = Math.round(plaatH*scale*4);
-      const ctx = c.getContext('2d');
-      ctx.scale(4,4);
-      ctx.fillStyle='#1E1B15'; ctx.fillRect(0,0,plaatW*scale,plaatH*scale);
-      sheet.placed.forEach(p => {
-        const col = COLORS[p.partIdx%COLORS.length];
-        const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
-        ctx.fillStyle=`rgba(${r},${g},${b},0.7)`;
-        ctx.fillRect(p.x*scale,p.y*scale,p.lengte*scale,p.breedte*scale);
-        ctx.strokeStyle=col; ctx.lineWidth=0.5;
-        ctx.strokeRect(p.x*scale,p.y*scale,p.lengte*scale,p.breedte*scale);
-        ctx.fillStyle='rgba(232,223,200,0.9)'; ctx.font=`bold ${Math.min(9,p.lengte*scale/7)}px sans-serif`;
-        ctx.textAlign='center';
-        if (p.lengte*scale>20) ctx.fillText(p.label,(p.x+p.lengte/2)*scale,(p.y+p.breedte/2)*scale+3);
+  // Zaagplan canvassen
+  if(S.cutPlan.length>0){
+    doc.addPage();doc.setFillColor(12,10,8);doc.rect(0,0,210,297,'F');
+    y=15;doc.setTextColor(200,160,64);doc.setFontSize(13);doc.text('Plaatindeling',15,y);y+=10;
+    const pw=S.cutPlan.pw,ph=S.cutPlan.ph;
+    const sc=Math.min(175/pw,80/ph);
+    for(const sh of S.cutPlan){
+      if(y+ph*sc+15>285){doc.addPage();doc.setFillColor(12,10,8);doc.rect(0,0,210,297,'F');y=15;}
+      doc.setFontSize(8);doc.setTextColor(128,96,64);doc.text(`Plaat ${sh.id+1}`,15,y);y+=4;
+      const cv=document.createElement('canvas');cv.width=Math.round(pw*sc*3);cv.height=Math.round(ph*sc*3);
+      const ctx=cv.getContext('2d');ctx.scale(3,3);
+      ctx.fillStyle='#1A1610';ctx.fillRect(0,0,pw*sc,ph*sc);
+      sh.placed.forEach(p=>{
+        const c=COLS[p.pi%COLS.length];
+        const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b2=parseInt(c.slice(5,7),16);
+        ctx.fillStyle=`rgba(${r},${g},${b2},.7)`;ctx.fillRect(p.x*sc,p.y*sc,p.lengte*sc,p.breedte*sc);
+        ctx.strokeStyle=c;ctx.lineWidth=.5;ctx.strokeRect(p.x*sc,p.y*sc,p.lengte*sc,p.breedte*sc);
+        if(p.lengte*sc>15){ctx.fillStyle='rgba(224,212,184,.9)';ctx.font=`bold ${Math.min(7,p.lengte*sc/7)}px sans-serif`;ctx.textAlign='center';ctx.fillText(p.label,(p.x+p.lengte/2)*sc,(p.y+p.breedte/2)*sc+2);}
       });
-      ctx.strokeStyle='rgba(200,160,80,0.6)'; ctx.lineWidth=1;
-      ctx.strokeRect(0,0,plaatW*scale,plaatH*scale);
-
-      doc.addImage(c.toDataURL(),'PNG',15,y,plaatW*scale,plaatH*scale);
-      y += plaatH*scale + 12;
+      ctx.strokeStyle='rgba(200,160,64,.6)';ctx.lineWidth=1;ctx.strokeRect(0,0,pw*sc,ph*sc);
+      doc.addImage(cv.toDataURL(),'PNG',15,y,pw*sc,ph*sc);
+      y+=ph*sc+10;
     }
   }
-
   doc.save('timmerai-zaagplan.pdf');
 }
 
-// ═══════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════
-async function callClaude(messages, maxTokens=1000) {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTokens, messages })
+// ═══ CLAUDE API ═══
+async function claude(messages, maxTokens=600){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages})
   });
-  const data = await resp.json();
-  return data.content.map(c=>c.type==='text'?c.text:'').join('');
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return d.content.map(c=>c.type==='text'?c.text:'').join('');
 }
 
-function showView(id) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  const el = document.getElementById(id);
-  if (el) el.classList.add('active');
+// ═══ UTILS ═══
+function showLoader(txt){ document.getElementById('loaderTxt').textContent=txt; document.getElementById('loader').classList.add('on'); }
+function hideLoader(){ document.getElementById('loader').classList.remove('on'); }
+
+// Page 3 navigation setup
+document.addEventListener('DOMContentLoaded', ()=>{
+  buildStepBar();
+  // Wire up page 3 render
+  const orig=goPage;
+  window.goPageOrig=orig;
+});
+
+// Override goPage to render parts when going to page 3
+const origGoPage=goPage;
+function goPage(n){
+  origGoPage(n);
+  if(n===3) renderParts();
 }
-
-function hideAllViews() {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-}
-
-function showLoading(text='Even geduld...') {
-  document.getElementById('loadingText').textContent = text;
-  document.getElementById('loadingMain').classList.add('show');
-}
-
-function hideLoading() {
-  document.getElementById('loadingMain').classList.remove('show');
-}
-
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().startsWith(name.charAt(0))));
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  const pane = document.getElementById('tab-'+name);
-  if (pane) pane.classList.add('active');
-
-  document.querySelectorAll('.tab').forEach(t => {
-    const map = {zaagplan:0,bestellijst:1,samenvatting:2};
-    t.classList.remove('active');
-  });
-  const tabs = document.querySelectorAll('.tab');
-  const idx = {zaagplan:0,bestellijst:1,samenvatting:2}[name];
-  if (tabs[idx]) tabs[idx].classList.add('active');
-}
-
-// Start!
-init();
 </script>
 </body>
 </html>
